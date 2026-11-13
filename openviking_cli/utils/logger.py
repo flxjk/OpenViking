@@ -24,45 +24,13 @@ from openviking.observability.context import (
 # Try to import opentelemetry - will be None if not installed
 try:
     from opentelemetry import trace as otel_trace
-    from opentelemetry._logs import set_logger_provider
-    from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
-    from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
-    from opentelemetry.sdk.resources import Resource
     from opentelemetry.trace import Status, StatusCode, format_span_id, format_trace_id
-
-    # Try to import the gRPC exporter.
-    try:
-        from opentelemetry.exporter.otlp.proto.grpc._log_exporter import (
-            OTLPLogExporter as OTLPGrpcLogExporter,
-        )
-    except ImportError:
-        OTLPGrpcLogExporter = None
-
-    # Try to import the HTTP exporter.
-    try:
-        from opentelemetry.exporter.otlp.proto.http._log_exporter import (
-            OTLPLogExporter as OTLPHttpLogExporter,
-        )
-    except ImportError:
-        OTLPHttpLogExporter = None
 except ImportError:
     otel_trace = None
-    set_logger_provider = None
-    LoggerProvider = None
-    LoggingHandler = None
-    BatchLogRecordProcessor = None
-    OTLPGrpcLogExporter = None
-    OTLPHttpLogExporter = None
-    Resource = None
     Status = None
     StatusCode = None
     format_span_id = None
     format_trace_id = None
-
-
-# Global OTel log handler state
-_otel_log_handler_initialized = False
-_otel_log_handler: Any = None
 
 _MANAGED_LOGGER_ROOTS = ("openviking", "openviking_cli", "uvicorn")
 _shared_log_handler: Optional[logging.Handler] = None
@@ -279,166 +247,6 @@ def bind_log_execution_trace(trace_id: Optional[str] = None, span_id: Optional[s
         yield effective_trace_id, effective_span_id
 
 
-def init_otel_log_handler(
-    protocol: str = "grpc",  # "grpc" or "http"
-    endpoint: str = "localhost:4317",  # gRPC default: 4317; HTTP default: 4318
-    service_name: str = "openviking-server",
-    insecure: bool = False,
-    headers: Optional[dict[str, str]] = None,
-    enabled: bool = True,
-) -> Any:
-    """Initialize OTel LoggingHandler.
-
-    Args:
-        protocol: OTLP protocol ("grpc" or "http").
-        endpoint: OTLP logs endpoint.
-        service_name: Service name.
-        insecure: For OTLP/gRPC only. When True, use plaintext instead of TLS.
-        headers: Additional OTLP exporter headers for vendor-specific auth.
-        enabled: Whether to enable the handler.
-
-    Returns:
-        The initialized LoggingHandler instance, or None if initialization fails.
-    """
-    global _otel_log_handler_initialized, _otel_log_handler
-
-    if not enabled:
-        return None
-
-    if _otel_log_handler_initialized:
-        return _otel_log_handler
-
-    # Validate protocol
-    protocol = protocol.lower()
-    if protocol not in ["grpc", "http"]:
-        protocol = "grpc"
-
-    if (
-        set_logger_provider is None
-        or LoggerProvider is None
-        or LoggingHandler is None
-        or BatchLogRecordProcessor is None
-        or Resource is None
-    ):
-        return None
-
-    try:
-        normalized_headers = {str(key): str(value) for key, value in (headers or {}).items()}
-        # Create resource
-        resource = Resource.create(
-            {
-                "service.name": service_name,
-            }
-        )
-
-        # Create logger provider
-        logger_provider = LoggerProvider(resource=resource)
-
-        # Select exporter based on protocol
-        otlp_exporter = None
-        if protocol == "grpc":
-            if OTLPGrpcLogExporter is None:
-                raise ImportError("gRPC OTLP log exporter not available")
-            try:
-                otlp_exporter = OTLPGrpcLogExporter(
-                    endpoint=endpoint,
-                    insecure=insecure,
-                    headers=normalized_headers,
-                )
-            except TypeError:
-                otlp_exporter = OTLPGrpcLogExporter(
-                    endpoint=endpoint,
-                    headers=normalized_headers,
-                )
-        elif protocol == "http":
-            if OTLPHttpLogExporter is None:
-                raise ImportError("HTTP OTLP log exporter not available")
-            # HTTP endpoint must be a full URL (with scheme). Do not auto-prefix to avoid implicit behavior.
-            if not endpoint.startswith("http://") and not endpoint.startswith("https://"):
-                raise ValueError(
-                    "OTLP/HTTP endpoint must include scheme, e.g. 'http://localhost:4318/v1/logs'"
-                )
-            otlp_exporter = OTLPHttpLogExporter(
-                endpoint=endpoint,
-                headers=normalized_headers,
-            )
-
-        if otlp_exporter is None:
-            raise ValueError(f"Failed to create log exporter for protocol={protocol}")
-
-        # Create batch log processor
-        log_processor = BatchLogRecordProcessor(otlp_exporter)
-        logger_provider.add_log_record_processor(log_processor)
-
-        # Set global logger provider
-        set_logger_provider(logger_provider)
-
-        # Create logging handler
-        _otel_log_handler = LoggingHandler(
-            level=logging.INFO,
-            logger_provider=logger_provider,
-        )
-
-        _otel_log_handler_initialized = True
-
-        logger = get_logger(__name__)
-        logger.info(
-            "[OTelLogHandler] initialized with protocol=%s, endpoint=%s, service_name=%s",
-            protocol,
-            endpoint,
-            service_name,
-        )
-
-        return _otel_log_handler
-    except Exception as e:
-        logger = get_logger(__name__)
-        logger.warning("[OTelLogHandler] initialization failed: %s", e)
-        return None
-
-
-def attach_otel_log_handler_to_existing_loggers() -> None:
-    """Attach the global OTel log handler to already-created loggers."""
-    if _otel_log_handler is None:
-        return
-
-    add_otel_log_handler_to_logger(logging.getLogger())
-
-    for logger_obj in logging.Logger.manager.loggerDict.values():
-        if isinstance(logger_obj, logging.Logger):
-            add_otel_log_handler_to_logger(logger_obj)
-
-
-def init_otel_log_handler_from_server_config(server_config: Any) -> Any:
-    """Initialize OTLP log export from server.observability.logs."""
-    logs_cfg = server_config.observability.logs
-    if not logs_cfg.enabled:
-        return None
-
-    handler = init_otel_log_handler(
-        protocol=logs_cfg.protocol,
-        endpoint=logs_cfg.endpoint,
-        service_name=logs_cfg.service_name,
-        insecure=logs_cfg.tls.insecure,
-        headers=logs_cfg.headers,
-        enabled=logs_cfg.enabled,
-    )
-    attach_otel_log_handler_to_existing_loggers()
-    return handler
-
-
-def add_otel_log_handler_to_logger(logger: logging.Logger) -> None:
-    """Add OTel LoggingHandler to the specified logger.
-
-    Args:
-        logger: The logger instance to add the handler to.
-    """
-    if _otel_log_handler is not None:
-        root_name = _managed_root_name(logger.name)
-        if root_name and logger.name != root_name:
-            logger = logging.getLogger(root_name)
-        # Check if the handler has already been added
-        if not any(isinstance(h, type(_otel_log_handler)) for h in logger.handlers):
-            logger.addHandler(_otel_log_handler)
 
 
 class TraceContextFilter(logging.Filter):
@@ -842,13 +650,11 @@ def _configure_logger_instance(
     logger.handlers.clear()
     if handler is not None:
         logger.addHandler(handler)
-        if _otel_log_handler is not None and isinstance(_otel_log_handler, logging.Handler):
-            logger.addHandler(_otel_log_handler)
     logger.propagate = propagate
     logger.setLevel(level)
     current_handlers = set(logger.handlers)
     for old_handler in old_handlers:
-        if old_handler in current_handlers or old_handler is _otel_log_handler:
+        if old_handler in current_handlers:
             continue
         try:
             old_handler.close()
@@ -859,14 +665,12 @@ def _configure_logger_instance(
 def get_logger(
     name: str = "openviking",
     format_string: Optional[str] = None,
-    add_otel_handler: bool = False,
 ) -> logging.Logger:
     """Get a configured logger instance.
 
     Args:
         name: Logger name, defaults to "openviking".
         format_string: Custom log format string, optional.
-        add_otel_handler: Whether to add OTel LoggingHandler, defaults to False.
 
     Returns:
         logging.Logger: Configured logger instance with automatic trace context injection.
@@ -898,10 +702,6 @@ def get_logger(
                 handler=handler,
                 propagate=False,
             )
-
-    # If OTel log export is globally initialized, attach the handler automatically.
-    if add_otel_handler or _otel_log_handler_initialized:
-        add_otel_log_handler_to_logger(logger)
 
     return logger
 

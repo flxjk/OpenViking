@@ -70,7 +70,6 @@ def make_adapter(vlm, default_model: str) -> VLMProviderAdapter:
     return VLMProviderAdapter(
         vlm,
         default_model=default_model,
-        langfuse_client=SimpleNamespace(enabled=False, _client=None),
     )
 
 

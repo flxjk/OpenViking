@@ -27,11 +27,6 @@ from openviking.models.vlm.backends.volcengine_vlm import (
 from openviking.models.vlm.retry_vlm import RetryVLM
 
 
-class _DisabledLangfuse:
-    enabled = False
-    _client = None
-
-
 class _FakeVLM:
     def __init__(self, failures: list[Exception], result: str = "ok"):
         self.failures = list(failures)
@@ -108,7 +103,7 @@ async def test_chat_preserves_model_retry_budget(monkeypatch, max_retries, expec
     completion = AsyncMock(side_effect=error)
     monkeypatch.setattr(backend, "get_completion_async", completion)
     adapter = VLMProviderAdapter(
-        RetryVLM(backend), "test-model", langfuse_client=_DisabledLangfuse()
+        RetryVLM(backend), "test-model"
     )
 
     response = await adapter.chat(messages=[{"role": "user", "content": "hello"}])
@@ -121,7 +116,7 @@ async def test_chat_preserves_model_retry_budget(monkeypatch, max_retries, expec
 @pytest.mark.asyncio
 async def test_chat_preserves_input_error_for_compile_without_retry():
     fake_vlm = _FakeVLM([ModelError(ModelErrorKind.INPUT_TOO_LARGE, "Input rejected")])
-    adapter = VLMProviderAdapter(fake_vlm, "test-model", langfuse_client=_DisabledLangfuse())
+    adapter = VLMProviderAdapter(fake_vlm, "test-model")
     files = SimpleNamespace(put=AsyncMock())
     model = JsonModel(adapter, "test-model", 0.0, files, CompileLimits(), {}, Counter())
 
@@ -142,7 +137,7 @@ async def test_chat_accepts_string_response_from_openai_backend_with_tools(monke
     )
     vlm = OpenAIVLM({"provider": "openai", "model": "gpt-5.6-terra"})
     monkeypatch.setattr(vlm, "get_async_client", lambda: client)
-    adapter = VLMProviderAdapter(vlm, "gpt-5.6-terra", langfuse_client=_DisabledLangfuse())
+    adapter = VLMProviderAdapter(vlm, "gpt-5.6-terra")
 
     response = await adapter.chat(
         messages=[{"role": "user", "content": "hello"}],
@@ -204,7 +199,7 @@ async def test_chat_without_tools_preserves_clean_content_and_metadata(
         monkeypatch.setattr("openviking.models.vlm.backends.litellm_vlm.acompletion", create)
     else:
         monkeypatch.setattr(vlm, "get_async_client", lambda: client)
-    adapter = VLMProviderAdapter(vlm, "gpt-5.6-terra", langfuse_client=_DisabledLangfuse())
+    adapter = VLMProviderAdapter(vlm, "gpt-5.6-terra")
 
     response = await adapter.chat(messages=[{"role": "user", "content": "hello"}])
 
@@ -239,7 +234,6 @@ async def test_chat_stream_retries_rate_limit_until_success(monkeypatch):
     adapter = VLMProviderAdapter(
         _FakeStreamingVLM(completions),
         "test-model",
-        langfuse_client=_DisabledLangfuse(),
     )
 
     events = [
@@ -284,7 +278,7 @@ async def test_chat_stream_obeys_retry_policy(monkeypatch, code, expected_calls,
             side_effect=[AsyncStream(cast_to=dict, response=r, client=client) for r in responses]
         )
         monkeypatch.setattr(client, "post", create)
-        adapter = VLMProviderAdapter(vlm, "test-model", langfuse_client=_DisabledLangfuse())
+        adapter = VLMProviderAdapter(vlm, "test-model")
         events = [event async for event in adapter.chat_stream(messages=[])]
     assert create.await_count == expected_calls
     assert all(response.is_closed for response in responses)
@@ -298,7 +292,6 @@ async def test_chat_stream_routes_failover_wrapper_through_completion_api():
     adapter = VLMProviderAdapter(
         fake_vlm,
         "primary-model",
-        langfuse_client=_DisabledLangfuse(),
     )
 
     events = [
@@ -326,7 +319,6 @@ async def test_chat_stream_logs_timeout_cause_and_request_metadata(monkeypatch):
     adapter = VLMProviderAdapter(
         _FakeStreamingVLM(completions, max_retries=0),
         "test-model",
-        langfuse_client=_DisabledLangfuse(),
     )
     captured = _CaptureLogger()
     monkeypatch.setattr(vlm_adapter, "logger", captured)
@@ -403,7 +395,6 @@ async def test_volcengine_stream_uses_unique_default_client_request_ids():
     adapter = VLMProviderAdapter(
         _FakeStreamingVLM(completions),
         "test-model",
-        langfuse_client=_DisabledLangfuse(),
     )
 
     for _ in range(2):
@@ -492,7 +483,7 @@ def test_volcengine_request_headers_preserve_custom_client_request_id():
 def test_completion_usage_object_is_normalized():
     from openai.types.completion_usage import CompletionUsage
 
-    adapter = VLMProviderAdapter(_FakeVLM([]), "test-model", langfuse_client=_DisabledLangfuse())
+    adapter = VLMProviderAdapter(_FakeVLM([]), "test-model")
     raw = SimpleNamespace(
         content="ok",
         tool_calls=[],

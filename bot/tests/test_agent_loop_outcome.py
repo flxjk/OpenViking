@@ -54,19 +54,6 @@ class _RecordingProvider(LLMProvider):
         return "fake-model"
 
 
-class _FakeLangfuseClient:
-    def __init__(self):
-        self.calls = []
-
-    def update_generation_metadata(self, response_id, metadata):
-        self.calls.append((response_id, metadata))
-        return metadata
-
-    def update_response_outcome(self, response_id, outcome_label, outcome_payload):
-        self.calls.append((response_id, outcome_label, outcome_payload))
-        return outcome_payload
-
-
 class _FakeOVClient:
     def __init__(self, *, context_payload):
         self.context_payload = context_payload
@@ -499,7 +486,6 @@ async def test_agent_loop_gates_multimodal_result_by_provider(make_loop, monkeyp
     provider: LLMProvider
     if scope in {"chat", "compile"}:
         from vikingbot.compile.service import _CompileProvider
-        from vikingbot.integrations.langfuse import LangfuseClient
         from vikingbot.providers.vlm_adapter import VLMProviderAdapter
 
         from openviking.models.vlm import VLMFactory
@@ -513,7 +499,7 @@ async def test_agent_loop_gates_multimodal_result_by_provider(make_loop, monkeyp
             ]
         )
         monkeypatch.setattr(vlm, "get_completion_async", completion)
-        adapter = VLMProviderAdapter(vlm, "kimi-k2", langfuse_client=LangfuseClient())
+        adapter = VLMProviderAdapter(vlm, "kimi-k2")
         provider = (
             _CompileProvider(adapter, asyncio.Semaphore(1)) if scope == "compile" else adapter
         )
@@ -705,13 +691,8 @@ async def test_agent_loop_interrupt_does_not_cancel_final_session_save(
             await release_save.wait()
         await original_save(session)
 
-    fake_langfuse = _FakeLangfuseClient()
     monkeypatch.setattr(AgentLoop, "_run_agent_loop", fake_run_agent_loop)
     monkeypatch.setattr(loop.sessions, "save", blocking_save)
-    monkeypatch.setattr(
-        "vikingbot.agent.loop.LangfuseClient.get_instance",
-        staticmethod(lambda: fake_langfuse),
-    )
 
     task = asyncio.create_task(loop._process_message_as_active_turn(msg))
     try:
@@ -1273,12 +1254,7 @@ async def test_agent_loop_evaluates_previous_response_outcome_before_openviking_
     async def fake_run_agent_loop(self, **kwargs):
         return "final answer", None, [], {"prompt_tokens": 1, "completion_tokens": 1}, 1
 
-    fake_langfuse = _FakeLangfuseClient()
     monkeypatch.setattr(AgentLoop, "_run_agent_loop", fake_run_agent_loop)
-    monkeypatch.setattr(
-        "vikingbot.agent.loop.LangfuseClient.get_instance",
-        staticmethod(lambda: fake_langfuse),
-    )
 
     bus = MessageBus()
     config = Config(
@@ -1592,14 +1568,9 @@ async def test_agent_loop_commits_before_model_at_context_limit(
         events.append(("model", [message.get("content") for message in kwargs["messages"]]))
         return "final answer", None, [], {"prompt_tokens": 1, "completion_tokens": 1}, 1
 
-    fake_langfuse = _FakeLangfuseClient()
     monkeypatch.setattr(loop_module.hook_manager, "execute_hooks", fake_execute_hooks)
     monkeypatch.setattr(AgentLoop, "_get_ov_client", fake_get_ov_client)
     monkeypatch.setattr(AgentLoop, "_run_agent_loop", fake_run_agent_loop)
-    monkeypatch.setattr(
-        "vikingbot.agent.loop.LangfuseClient.get_instance",
-        staticmethod(lambda: fake_langfuse),
-    )
 
     bus = MessageBus()
     config = Config(
@@ -1727,13 +1698,8 @@ async def test_agent_loop_post_turn_clears_local_session_after_openviking_commit
     async def fake_run_agent_loop(self, **kwargs):
         return "final answer", None, [], {"prompt_tokens": 1, "completion_tokens": 1}, 1
 
-    fake_langfuse = _FakeLangfuseClient()
     monkeypatch.setattr(loop_module.hook_manager, "execute_hooks", fake_execute_hooks)
     monkeypatch.setattr(AgentLoop, "_run_agent_loop", fake_run_agent_loop)
-    monkeypatch.setattr(
-        "vikingbot.agent.loop.LangfuseClient.get_instance",
-        staticmethod(lambda: fake_langfuse),
-    )
 
     bus = MessageBus()
     config = Config(
@@ -1924,10 +1890,6 @@ async def test_local_compaction_preserves_concurrently_saved_messages(
     session.messages[-1].update(response_id="resp-123", timestamp="2026-04-30T00:00:00")
     session.metadata["response_outcomes"] = {"existing-response": {"outcome_label": "resolved"}}
     await loop.sessions.save(session)
-    monkeypatch.setattr(
-        "vikingbot.agent.loop.LangfuseClient.get_instance",
-        staticmethod(lambda: _FakeLangfuseClient()),
-    )
     started = asyncio.Event()
     release = asyncio.Event()
 

@@ -1,7 +1,6 @@
 """Tool registry for dynamic tool management."""
 
 import json
-import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -12,9 +11,7 @@ from vikingbot.agent.tools.base import MultimodalToolResult, Tool, ToolContext
 from vikingbot.config.schema import SessionKey
 from vikingbot.hooks import HookContext
 from vikingbot.hooks.manager import hook_manager
-from vikingbot.integrations.langfuse import LangfuseClient
 from vikingbot.sandbox.manager import SandboxManager
-from vikingbot.utils.tracing import get_current_response_id
 
 
 @dataclass(frozen=True)
@@ -36,7 +33,6 @@ class ToolRegistry:
 
     def __init__(self, config: Any = None):
         self._tools: dict[str, Tool] = {}
-        self.langfuse = LangfuseClient.get_instance()
         self.config = config
 
     def register(self, tool: Tool) -> None:
@@ -214,23 +210,10 @@ class ToolRegistry:
             skill_runtime=skill_runtime,
         )
 
-        # Langfuse tool call tracing - automatic for all tools
-        tool_span = None
-        start_time = time.time()
         result = None
         effective_params = dict(params)
         skill_uris: tuple[str, ...] = ()
-        response_id = get_current_response_id()
         try:
-            if self.langfuse.enabled:
-                tool_ctx = self.langfuse.tool_call(
-                    name=name,
-                    input=params,
-                    session_id=session_key.safe_name(),
-                    metadata={"response_id": response_id} if response_id else None,
-                )
-                tool_span = tool_ctx.__enter__()
-
             validation_params = (
                 skill_runtime.tool_params_for_validation(params)
                 if skill_runtime is not None
@@ -264,30 +247,6 @@ class ToolRegistry:
         except Exception as e:
             result = e
             logger.exception("Tool call failed: {}", e)
-        finally:
-            # End Langfuse tool call tracing
-            duration_ms = (time.time() - start_time) * 1000
-            if tool_span is not None:
-                try:
-                    execute_success = not isinstance(result, Exception) and not (
-                        isinstance(result, str) and result.lstrip().startswith("Error:")
-                    )
-                    output_str = str(result) if result is not None else None
-                    self.langfuse.end_tool_call(
-                        span=tool_span,
-                        output=output_str,
-                        success=execute_success,
-                        metadata={
-                            "duration_ms": duration_ms,
-                            **({"response_id": response_id} if response_id else {}),
-                        },
-                    )
-                    if hasattr(tool_span, "__exit__"):
-                        tool_span.__exit__(None, None, None)
-                    self.langfuse.flush()
-                except Exception:
-                    pass
-
         hook_result = await hook_manager.execute_hooks(
             context=HookContext(
                 event_type="tool.post_call",

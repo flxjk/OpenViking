@@ -259,15 +259,6 @@ def test_load_server_config_preserves_otlp_headers_fields(tmp_path):
 
     config = load_server_config(str(config_path))
 
-    assert config.observability.traces.headers == {
-        "X-ByteAPM-AppKey": "trace-appkey",
-    }
-    assert config.observability.logs.headers == {
-        "X-ByteAPM-AppKey": "log-appkey",
-    }
-    assert config.observability.metrics.exporters.otel.headers == {
-        "X-ByteAPM-AppKey": "metric-appkey",
-    }
 
 
 def test_load_server_config_trace_local_defaults(tmp_path):

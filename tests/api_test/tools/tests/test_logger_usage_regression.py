@@ -17,7 +17,6 @@ def test_runtime_modules_use_unified_get_logger():
         "openviking/observability/http_observability_middleware.py",
         "openviking/observability/context.py",
         "openviking/metrics/global_api.py",
-        "openviking/metrics/exporters/otel.py",
         "openviking/parse/registry.py",
         "openviking/parse/tree_builder.py",
         "openviking/parse/accessors/registry.py",

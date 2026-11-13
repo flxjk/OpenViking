@@ -245,7 +245,6 @@ async def test_bot_multi_credentials_preserve_thinking_for_chat(tmp_path, monkey
 
     provider = _make_provider(
         config,
-        langfuse_client=SimpleNamespace(enabled=False, _client=None),
     )
     primary = provider._vlm._vlm_instances[0]
     primary.get_completion_async = AsyncMock(return_value="ok")

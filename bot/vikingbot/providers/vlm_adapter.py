@@ -22,7 +22,6 @@ from openviking.utils.message_format import tool_images_as_user_messages
 from openviking.utils.model_retry import effective_max_retries, retry_async
 from openviking.utils.multimodal import redact_image_data_urls
 from openviking_cli.utils import get_logger
-from vikingbot.integrations.langfuse import LangfuseClient
 from vikingbot.providers.base import (
     LLMProvider,
     LLMResponse,
@@ -32,7 +31,6 @@ from vikingbot.providers.base import (
     merge_stream_tool_call_delta,
     stream_delta_value,
 )
-from vikingbot.utils.tracing import get_current_response_id
 
 _MAX_ERROR_LOG_VALUE_CHARS = 4096
 _MAX_ERROR_LOG_ITEMS = 50
@@ -246,12 +244,10 @@ class VLMProviderAdapter(LLMProvider):
         self,
         vlm_instance,  # VLMBase
         default_model: str,
-        langfuse_client: LangfuseClient | None = None,
     ):
         super().__init__(api_key=None, api_base=None)
         self._vlm = vlm_instance
         self._default_model = default_model
-        self._langfuse = langfuse_client or LangfuseClient.get_instance()
 
     async def chat(
         self,
@@ -266,28 +262,7 @@ class VLMProviderAdapter(LLMProvider):
     ) -> LLMResponse:
         effective_model = model or self._default_model
 
-        # --- Langfuse: start observation ---
-        langfuse_observation = None
         try:
-            if self._langfuse.enabled and self._langfuse._client:
-                metadata: dict[str, Any] = {"has_tools": tools is not None}
-                response_id = get_current_response_id()
-                if response_id:
-                    metadata["response_id"] = response_id
-                client = self._langfuse._client
-                if hasattr(client, "start_observation"):
-                    langfuse_observation = client.start_observation(
-                        name="llm-chat",
-                        as_type="generation",
-                        model=effective_model,
-                        input=redact_image_data_urls(messages),
-                        metadata=metadata,
-                    )
-                    if response_id:
-                        self._langfuse.register_generation(
-                            response_id, langfuse_observation, metadata=metadata
-                        )
-
             # --- Call VLM backend ---
             # An explicit empty list asks VLM backends for a structured response
             # without exposing tools, so per-response usage is preserved.
@@ -314,15 +289,9 @@ class VLMProviderAdapter(LLMProvider):
 
             llm_response = self._convert_response(result)
 
-            # --- Langfuse: end observation ---
-            if langfuse_observation:
-                self._end_langfuse_observation(langfuse_observation, llm_response)
-
             return llm_response
 
         except Exception as e:
-            if langfuse_observation:
-                self._end_langfuse_observation_error(langfuse_observation, e)
             self._log_request_exception("chat", e, model=effective_model)
             return LLMResponse(
                 content=f"Error calling LLM in VLM Adapter: {str(e)}",
@@ -722,88 +691,3 @@ class VLMProviderAdapter(LLMProvider):
         capability = getattr(vlm, "tool_result_media_mode", None)
         mode = capability() if callable(capability) else None
         return "native" if mode == "native" else "user_message"
-
-    # ------------------------------------------------------------------
-    # Langfuse helpers
-    # ------------------------------------------------------------------
-
-    def _end_langfuse_observation(self, obs, llm_response: LLMResponse) -> None:
-        try:
-            output_text = llm_response.content or ""
-            if llm_response.tool_calls:
-                output_text = (
-                    output_text or f"[Tool calls: {[tc.name for tc in llm_response.tool_calls]}]"
-                )
-
-            update_kwargs: dict[str, Any] = {
-                "output": output_text,
-                "metadata": {
-                    "finish_reason": llm_response.finish_reason,
-                    **(
-                        {"response_id": get_current_response_id()}
-                        if get_current_response_id()
-                        else {}
-                    ),
-                },
-            }
-
-            if llm_response.usage:
-                usage_details: dict[str, Any] = {
-                    "input": llm_response.usage.get("prompt_tokens", 0),
-                    "output": llm_response.usage.get("completion_tokens", 0),
-                }
-                cache_read_tokens = llm_response.usage.get(
-                    "cache_read_input_tokens"
-                ) or llm_response.usage.get("prompt_tokens_details", {}).get("cached_tokens")
-                if cache_read_tokens:
-                    usage_details["cache_read_input_tokens"] = cache_read_tokens
-                update_kwargs["usage_details"] = usage_details
-
-            response_id = get_current_response_id()
-            if response_id:
-                update_kwargs["metadata"] = self._langfuse.update_generation_metadata(
-                    response_id,
-                    update_kwargs.get("metadata", {}),
-                )
-
-            if hasattr(obs, "update"):
-                try:
-                    obs.update(**update_kwargs)
-                except Exception as e:
-                    logger.debug(f"[LANGFUSE] Failed to update observation: {e}")
-
-            if hasattr(obs, "end"):
-                try:
-                    obs.end()
-                except Exception as e:
-                    logger.debug(f"[LANGFUSE] Failed to end observation: {e}")
-
-            try:
-                self._langfuse.flush()
-            except Exception as e:
-                logger.debug(f"[LANGFUSE] Failed to flush: {e}")
-        except Exception:
-            pass
-
-    def _end_langfuse_observation_error(self, obs, error: Exception) -> None:
-        try:
-            if hasattr(obs, "update"):
-                obs.update(
-                    output=f"Error: {str(error)}",
-                    metadata={
-                        "error": str(error),
-                        **(
-                            {"response_id": get_current_response_id()}
-                            if get_current_response_id()
-                            else {}
-                        ),
-                    },
-                )
-            if hasattr(obs, "end"):
-                obs.end()
-            try:
-                self._langfuse.flush()
-            except Exception:
-                pass
-        except Exception:
-            pass

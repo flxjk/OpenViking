@@ -319,7 +319,7 @@ class MemoryTypeRegistry:
 
             # Write the file
             try:
-                from openviking.observability.reporting.facts import bind_memory_type
+                from openviking.observability.facts import bind_memory_type
 
                 with bind_memory_type(schema.memory_type):
                     await viking_fs.write_file(file_uri, full_content, ctx=ctx)

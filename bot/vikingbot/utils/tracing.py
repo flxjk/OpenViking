@@ -2,8 +2,7 @@
 Abstract tracing utilities for observability.
 
 This module provides a tracing abstraction that is not tied to any specific
-backend (Langfuse, OpenTelemetry, etc.), allowing for easy switching of
-implementations.
+backend, allowing for easy switching of implementations.
 """
 
 from contextlib import contextmanager
@@ -18,12 +17,6 @@ _session_id: ContextVar[str | None] = ContextVar("session_id", default=None)
 _response_id: ContextVar[str | None] = ContextVar("response_id", default=None)
 
 T = TypeVar("T")
-
-# Try to import langfuse observe decorator
-try:
-    from langfuse.decorators import observe as langfuse_observe
-except ImportError:
-    langfuse_observe = None
 
 
 def get_current_session_id() -> str | None:
@@ -77,7 +70,7 @@ def trace(
 
     This decorator is backend-agnostic. It manages session ID injection
     through context variables, without binding to any specific tracing
-    implementation (Langfuse, OpenTelemetry, etc.).
+    implementation.
 
     Args:
         name: Optional name for the trace span. Defaults to function name.
@@ -102,12 +95,7 @@ def trace(
     """
 
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
-        span_name = name or func.__name__
-
-        # Apply @observe decorator if available for Langfuse tracing
         wrapped_func = func
-        if langfuse_observe is not None:
-            wrapped_func = langfuse_observe(name=span_name)(func)
 
         @wraps(func)
         async def async_wrapper(*args: Any, **kwargs: Any) -> T:
@@ -174,20 +162,6 @@ def trace(
             # Use context manager to set session_id for nested operations
             if session_id:
                 with set_session_id(session_id):
-                    # Also propagate to langfuse if available
-                    from vikingbot.integrations.langfuse import LangfuseClient
-
-                    langfuse = LangfuseClient.get_instance()
-                    has_propagate = hasattr(langfuse, "propagate_attributes")
-                    is_enabled = getattr(langfuse, "enabled", False)
-                    # logger.info(f"[LANGFUSE] Client status: enabled={langfuse.enabled}, has_propagate_attributes={has_propagate}")
-                    if is_enabled and has_propagate:
-                        # logger.info(f"[LANGFUSE] Starting trace with attributes: session_id={session_id}, user_id={user_id}")
-                        with langfuse.propagate_attributes(session_id=session_id, user_id=user_id):
-                            return await wrapped_func(*args, **kwargs)
-                    else:
-                        if not has_propagate:
-                            logger.warning("[LANGFUSE] propagate_attributes not available")
                     return await wrapped_func(*args, **kwargs)
             else:
                 return await wrapped_func(*args, **kwargs)

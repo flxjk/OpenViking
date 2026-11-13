@@ -8,7 +8,6 @@ import litellm
 import pytest
 from litellm.types.utils import LlmProviders
 from litellm.utils import ProviderConfigManager
-from vikingbot.integrations.langfuse import LangfuseClient
 from vikingbot.providers.vlm_adapter import VLMProviderAdapter
 
 from openviking.models.model_error import ModelError, ModelErrorKind
@@ -23,7 +22,7 @@ from openviking.models.vlm.base import VLMResponse
 async def test_unknown_media_transport_and_backup_do_not_block_images(monkeypatch):
     completion = AsyncMock(return_value=VLMResponse(content="done"))
     unknown = SimpleNamespace(provider="openai", get_completion_async=completion)
-    adapter = VLMProviderAdapter(unknown, "vision", langfuse_client=LangfuseClient())
+    adapter = VLMProviderAdapter(unknown, "vision")
     image = {"type": "image_url", "image_url": {"url": "data:image/png;base64,AA=="}}
     messages = [{"role": "tool", "tool_call_id": "read", "content": [image]}]
     assert (await adapter.chat(messages)).content == "done"
@@ -36,7 +35,7 @@ async def test_unknown_media_transport_and_backup_do_not_block_images(monkeypatc
         FailoverVLM(primary, backup),
         MultiCredentialVLM([primary, backup], credential_ids=["primary", "backup"]),
     ):
-        adapter = VLMProviderAdapter(chain, "vision", langfuse_client=LangfuseClient())
+        adapter = VLMProviderAdapter(chain, "vision")
         assert adapter.supports_tool_result_media()
         assert (await adapter.chat(messages)).content == "done"
         assert completion.await_args.kwargs["messages"][-1]["content"][-1] == image
@@ -136,7 +135,7 @@ async def test_litellm_declared_media_survives_actual_conversion(
         return "image delivered"
 
     monkeypatch.setattr("openviking.models.vlm.backends.litellm_vlm.acompletion", convert)
-    adapter = VLMProviderAdapter(vlm, model, langfuse_client=LangfuseClient())
+    adapter = VLMProviderAdapter(vlm, model)
     assert (await adapter.chat(messages, tools=tools)).content == "image delivered"
     serialized = json.dumps(captured[0])
     assert serialized.count(encoded) == 1 and "viking://resources/image.png" in serialized
@@ -181,7 +180,7 @@ async def test_vlm_adapter_preserves_native_media_and_adapts_mixed_credential_ch
         if wrapper == "credentials"
         else FailoverVLM(native, backup)
     )
-    provider = VLMProviderAdapter(vlm, "vision", langfuse_client=LangfuseClient())
+    provider = VLMProviderAdapter(vlm, "vision")
     image = {"type": "image_url", "image_url": {"url": "data:image/png;base64,AA=="}}
     messages = [{"role": "tool", "tool_call_id": "read", "content": [image]}]
 
@@ -337,7 +336,6 @@ async def test_vlm_adapter_volcengine_stream_respects_optional_max_tokens(
     provider = VLMProviderAdapter(
         vlm,
         default_model="ep-test",
-        langfuse_client=SimpleNamespace(enabled=False, _client=None),
     )
 
     events = [

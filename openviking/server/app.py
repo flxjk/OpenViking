@@ -71,7 +71,6 @@ from openviking_cli.utils.config import (
     get_openviking_config,
     resolve_config_path,
 )
-from openviking_cli.utils.logger import init_otel_log_handler_from_server_config
 from openviking_gateway.config import MOUNT_PATH as GATEWAY_MOUNT_PATH
 
 logger = get_logger(__name__)
@@ -403,10 +402,6 @@ def create_app(
         if config.observability.metrics.enabled:
             logger.info("Prometheus metrics enabled at /metrics")
         await init_usage_audit_from_server_config(config, app=app, service=service)
-        from openviking.observability.reporting import start_reporting
-
-        app.state.event_reporter = await start_reporting(config.observability.reporting)
-
         # Initialize OAuth 2.1 store + provider when enabled in OpenViking config.
         # The store + provider instances were already constructed at app
         # creation time so the SDK routes could capture them; here we just
@@ -434,11 +429,10 @@ def create_app(
         task_tracker = get_task_tracker()
         task_tracker.start_cleanup_loop()
 
-        # Initialize tracing and OTLP log export from server.observability.
+        # Initialize local tracing from server.observability.
         from openviking.telemetry import tracer_module
 
         tracer_module.init_tracer_from_server_config(config)
-        init_otel_log_handler_from_server_config(config)
 
         # Start MCP session manager (must be active before /mcp requests)
         from openviking.server.mcp_endpoint import mcp_lifespan
@@ -500,9 +494,6 @@ def create_app(
                 logger.warning("Auth plugin shutdown failed: %s", e)
         if usage_reporter is not usage_reporter_unset and usage_reporter is not None:
             await usage_reporter.close()
-        from openviking.observability.reporting import stop_reporting
-
-        await stop_reporting()
 
     app = FastAPI(
         title="OpenViking API",

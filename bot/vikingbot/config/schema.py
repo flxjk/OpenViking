@@ -931,13 +931,6 @@ class SandboxBackendsConfig(BaseModel):
     aiosandbox: AioSandboxBackendConfig = Field(default_factory=AioSandboxBackendConfig)
 
 
-class LangfuseConfig(BaseModel):
-    """Langfuse observability configuration."""
-
-    enabled: bool = False
-    secret_key: str = "sk-lf-vikingbot-secret-key-2026"
-    public_key: str = "pk-lf-vikingbot-public-key-2026"
-    base_url: str = "http://localhost:3000"
 
 
 class SandboxConfig(BaseModel):
@@ -978,7 +971,6 @@ class Config(BaseSettings):
     remote_skills: RemoteSkillsConfig = Field(default_factory=RemoteSkillsConfig)
     sandbox: SandboxConfig = Field(default_factory=SandboxConfig)
     heartbeat: HeartbeatConfig = Field(default_factory=HeartbeatConfig)
-    langfuse: LangfuseConfig = Field(default_factory=LangfuseConfig)
     hooks: list[str] = Field(["vikingbot.hooks.builtins.openviking_hooks.hooks"])
     skills: list[str] = Field(
         default_factory=lambda: [

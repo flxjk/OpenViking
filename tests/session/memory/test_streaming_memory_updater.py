@@ -791,14 +791,12 @@ async def test_streaming_memory_updater_batches_non_append_only_submits(tmp_path
         bind_root_observability_context,
         reset_root_observability_context,
     )
-    from openviking.observability.events import get_event_bus, try_publish_event
-    from openviking.observability.reporting import runtime
+    from openviking.observability.events import try_publish_event
     from openviking.storage.viking_fs import VikingFS
     from openviking.telemetry.span_models import RootSpanAttributes
     from tests.utils.mock_agfs import MockLocalAGFS
 
     _patch_language_config(monkeypatch)
-    monkeypatch.setattr(runtime, "_reporter", object())
     fs = VikingFS(agfs=MockLocalAGFS(root_path=tmp_path))
     monkeypatch.setattr(fs, "search", AsyncMock(return_value=[]))
     for module in ("streaming_memory_updater", "memory_updater"):
@@ -822,12 +820,6 @@ async def test_streaming_memory_updater_batches_non_append_only_submits(tmp_path
             timer_check_interval_seconds=0.01,
         ),
     )
-    events = []
-    bus = get_event_bus()
-    bus.register(
-        "memory-batch-reporting", runtime.make_subscriber(SimpleNamespace(report=events.append), {})
-    )
-
     async def submit(name):
         token = bind_root_observability_context(
             RootSpanAttributes(
@@ -859,7 +851,6 @@ async def test_streaming_memory_updater_batches_non_append_only_submits(tmp_path
     try:
         first = await submit("a")
         assert first.apply_result.written_uris == _note_op("a").uris
-        events.clear()
         second, third = await asyncio.gather(submit("b"), submit("c"))
         assert second is not third
         assert second.request_count == third.request_count == 1
@@ -868,19 +859,8 @@ async def test_streaming_memory_updater_batches_non_append_only_submits(tmp_path
         assert all(not result.apply_result.errors for result in (second, third))
         assert await fs.read_file(_note_op("b").uris[0], ctx=_ctx())
         assert await fs.read_file(_note_op("c").uris[0], ctx=_ctx())
-        calls = [e for e in events if e["event_name"] == "vlm_call"]
-        assert len(calls) == 1
-        assert calls[0]["task_id"] == ""
-        assert calls[0]["source_task_ids"] == ["task_b", "task_c"]
-        assert (calls[0]["prompt_tokens"], calls[0]["completion_tokens"]) == (17, 3)
-        writes = [e for e in events if e["event_name"] == "file_mutation"]
-        assert {(e["uri"], e["task_id"]) for e in writes} == {
-            (_note_op("b").uris[0], "task_b"),
-            (_note_op("c").uris[0], "task_c"),
-        }
     finally:
         await updater.close()
-        bus.unregister("memory-batch-reporting")
 
 
 @pytest.mark.asyncio

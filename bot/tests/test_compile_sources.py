@@ -33,7 +33,6 @@ from vikingbot.compile.skill_resources import EvidenceReader
 from vikingbot.compile.sources import read_source, split_source
 from vikingbot.config import loader
 from vikingbot.config.schema import Config, SessionKey
-from vikingbot.integrations.langfuse import LangfuseClient
 from vikingbot.providers.base import LLMProvider, LLMResponse, ToolCallRequest
 from vikingbot.sandbox.backends.direct import DirectBackend
 from vikingbot.session.manager import SessionManager
@@ -202,7 +201,7 @@ async def test_compile_image_reaches_chat_completion_wire(
     config_path.write_text(json.dumps({"vlm": selected}))
     monkeypatch.setattr(loader, "CONFIG_PATH", config_path)
     monkeypatch.setenv("OPENVIKING_CONFIG_FILE", str(config_path))
-    pipeline.model.provider = _make_provider(loader.load_config(), langfuse_client=LangfuseClient())
+    pipeline.model.provider = _make_provider(loader.load_config())
     pipeline.model.model = model
     image = await seed(runtime)
 

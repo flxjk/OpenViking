@@ -77,7 +77,7 @@ VikingBot 提供两种主动执行机制：
 - Bot HTTP API 和 SSE 流式事件；
 - AgentLoop、Session、Cron 和 Heartbeat；
 - OpenViking API 代理；
-- 用户反馈、结果评估、日志和可选 Langfuse 观测。
+- 用户反馈、结果评估和日志。
 
 配置 OpenViking upstream 后，Bot Chat 和 `/api/v1/*` 可以使用同一个 Gateway 地址，但 Gateway Token 与 OpenViking 用户身份仍是两个独立安全边界。
 

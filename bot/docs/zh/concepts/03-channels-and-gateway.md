@@ -102,11 +102,9 @@ Gateway 使用多层安全边界：
 
 当用户继续对话时，Outcome Evaluator 还可以根据后续行为评估上一条回复，形成 `response_outcome_evaluated` 事件。`vikingbot feedback-stats` 聚合本地 Session，统计反馈覆盖率、评分、结果状态、工具使用和延迟。
 
-## Langfuse 与日志
+## 反馈与日志
 
-设置 `bot.langfuse.enabled=true` 后，模型调用、token usage、耗时、工具事件和结果 metadata 会写入 Langfuse。Langfuse 初始化失败不会阻断 Bot 主链路。
-
-运行日志使用 Loguru；Gateway 的 `--verbose` 可以开启更详细日志。分析专用事件与普通回复分离，不会被误发到聊天平台。
+反馈与结果事件会和 Bot Session 数据一起保存在本地，可使用 `vikingbot feedback-stats` 汇总。运行日志使用 Loguru；Gateway 的 `--verbose` 可以开启更详细日志。分析专用事件与普通回复分离，不会发送到聊天平台。
 
 ## 实现位置
 
@@ -118,7 +116,6 @@ Gateway 使用多层安全边界：
 | API 数据模型 | `vikingbot/channels/openapi_models.py` |
 | 运行时组装 | `vikingbot/cli/commands.py` |
 | 反馈与结果 | `vikingbot/observability/` |
-| Langfuse | `vikingbot/integrations/langfuse.py` |
 
 ## 相关文档
 

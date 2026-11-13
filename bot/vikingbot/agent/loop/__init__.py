@@ -5,7 +5,6 @@ from openviking.utils.rule_delivery import MAX_RULE_RESULT_CHARS
 from vikingbot.agent.loop.loop import (
     AgentIterationLimitExceeded,
     AgentLoop,
-    LangfuseClient,
     SubagentManager,
     _is_tool_result_success,
     _PlainTextContext,

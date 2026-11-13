@@ -620,23 +620,6 @@ Gateway 的 Bot API 前缀为 `/bot/v1`：
 | `vikingbot cron run` | 手动执行任务 |
 | `vikingbot feedback-stats` | 汇总回复反馈与结果指标 |
 
-启用 Langfuse：
-
-```json
-{
-  "bot": {
-    "langfuse": {
-      "enabled": true,
-      "secret_key": "<langfuse-secret-key>",
-      "public_key": "<langfuse-public-key>",
-      "base_url": "http://localhost:3000"
-    }
-  }
-}
-```
-
-仓库内提供了 `deploy/docker/deploy_langfuse.sh`，可用于本地部署。
-
 ## 安全提示
 
 - 不要把模型 API Key、OpenViking API Key 或 Gateway Token 提交到仓库。

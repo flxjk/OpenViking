@@ -62,7 +62,6 @@ from .retrieval_config import RetrievalConfig
 from .rules_config import RulesConfig
 from .runtime_field import RuntimeField
 from .storage_config import StorageConfig
-from .telemetry_config import TelemetryConfig
 from .ttl_config import TTLConfig
 from .vlm_config import VLMConfig
 
@@ -596,9 +595,6 @@ class OpenVikingConfig(BaseModel):
         description="OAuth 2.1 (MCP) configuration",
     )
 
-    telemetry: "TelemetryConfig" = Field(
-        default_factory=TelemetryConfig, description="Telemetry configuration"
-    )
     prompts: PromptsConfig = Field(
         default_factory=PromptsConfig,
         description="Prompt template configuration",

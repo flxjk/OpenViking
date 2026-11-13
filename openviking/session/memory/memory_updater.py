@@ -1150,7 +1150,7 @@ class MemoryUpdater:
         uri_memory_type_map = {}
         for resolved_op in applicable_upserts:
             try:
-                from openviking.observability.reporting.facts import bind_memory_type
+                from openviking.observability.facts import bind_memory_type
 
                 with bind_memory_type(
                     resolved_op.memory_type,

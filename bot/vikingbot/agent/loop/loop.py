@@ -51,7 +51,6 @@ from vikingbot.bus.queue import MessageBus
 from vikingbot.config.schema import BotMode, Config, SessionKey
 from vikingbot.heartbeat.service import HEARTBEAT_METADATA_KEY, is_heartbeat_noop_response
 from vikingbot.hooks.manager import hook_manager
-from vikingbot.integrations.langfuse import LangfuseClient
 from vikingbot.providers.base import LLMProvider
 from vikingbot.sandbox import SandboxManager
 from vikingbot.session.manager import SessionManager
@@ -933,9 +932,6 @@ class AgentLoop(LoopToolMixin, LoopEventMixin, LoopSessionMixin, LoopCompactionM
                 await self.sessions.save(session)
                 if not self._eval:
                     await session_policy.after_turn(session, openviking_connection)
-            LangfuseClient.get_instance().update_generation_metadata(
-                response_id, response_completed
-            )
             response_metadata = dict(msg.metadata or {})
             if relevant_memories is not None:
                 response_metadata["relevant_memories"] = relevant_memories

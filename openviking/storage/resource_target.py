@@ -15,7 +15,6 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from openviking.observability.reporting.facts import emit_file_change
 from openviking.utils.path_safety import safe_join_viking_uri
 
 
@@ -68,7 +67,6 @@ class AgfsResourceTarget:
         )
         # Incremental imports intentionally skip rm's index cleanup. Record
         # their committed deletion here, after storage succeeds, exactly once.
-        emit_file_change(uri, self._ctx, "deleted", is_dir=is_dir)
 
 
 __all__ = ["AgfsResourceTarget"]

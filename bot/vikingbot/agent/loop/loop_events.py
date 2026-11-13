@@ -11,7 +11,6 @@ from typing import Any
 from vikingbot.bus.events import InboundMessage, OutboundEventType, OutboundMessage
 from vikingbot.config.schema import SessionKey
 from vikingbot.heartbeat.service import HEARTBEAT_METADATA_KEY
-from vikingbot.integrations.langfuse import LangfuseClient
 from vikingbot.observability.outcome import evaluate_response_outcome, should_update_outcome
 from vikingbot.session.manager import Session
 from vikingbot.utils.helpers import cal_str_tokens
@@ -195,11 +194,6 @@ class LoopEventMixin:
 
         outcome_payload = evaluation.to_dict()
         outcomes[response_id] = outcome_payload
-        LangfuseClient.get_instance().update_response_outcome(
-            response_id,
-            outcome_payload["outcome_label"],
-            outcome_payload,
-        )
         await self.bus.publish_outbound(
             OutboundMessage(
                 session_key=msg.session_key,

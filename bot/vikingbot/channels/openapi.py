@@ -41,7 +41,6 @@ from vikingbot.config.schema import (
     Config,
     SessionKey,
 )
-from vikingbot.integrations.langfuse import LangfuseClient
 from vikingbot.observability.outcome import evaluate_response_outcome, should_update_outcome
 from vikingbot.session.manager import SessionManager
 from vikingbot.utils.helpers import cal_str_tokens
@@ -1865,11 +1864,6 @@ class OpenAPIChannel(BaseChannel):
         )
         feedback_event, feedback_delay_sec, outcome_payload = feedback_update
         if outcome_payload is not None:
-            LangfuseClient.get_instance().update_response_outcome(
-                request.response_id,
-                outcome_payload["outcome_label"],
-                outcome_payload,
-            )
             await self.bus.publish_outbound(
                 OutboundMessage(
                     session_key=session_key,

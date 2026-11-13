@@ -169,7 +169,7 @@ async def embed_compat(
 ) -> "EmbedResult":
     from contextlib import nullcontext
 
-    from openviking.observability.reporting.facts import bind_embedding_purpose
+    from openviking.observability.facts import bind_embedding_purpose
 
     with bind_embedding_purpose("search_query") if is_query else nullcontext():
         return await _embed_compat_impl(embedder, content, is_query=is_query)

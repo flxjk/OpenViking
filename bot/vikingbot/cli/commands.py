@@ -77,7 +77,6 @@ from vikingbot.config.schema import Config, SessionKey, requires_gateway_token  
 from vikingbot.cron.service import CronService  # noqa: E402
 from vikingbot.cron.types import CronJob  # noqa: E402
 from vikingbot.heartbeat.service import HeartbeatService  # noqa: E402
-from vikingbot.integrations.langfuse import LangfuseClient  # noqa: E402
 from vikingbot.observability.feedback_stats import (  # noqa: E402
     compute_feedback_stats,
     format_feedback_stats_table,
@@ -383,7 +382,7 @@ def main(
     pass
 
 
-def _make_provider(config, langfuse_client: Any = None):
+def _make_provider(config):
     """Create LLM provider from configuration.
 
     An explicit bot.agents.model or non-empty bot.agents.credentials uses the
@@ -434,7 +433,6 @@ def _make_provider(config, langfuse_client: Any = None):
         return VLMProviderAdapter(
             vlm_instance=effective_vlm.get_vlm_instance(),
             default_model=effective_vlm.model or model,
-            langfuse_client=langfuse_client,
         )
 
     if credentials:
@@ -481,7 +479,6 @@ def _make_provider(config, langfuse_client: Any = None):
         return VLMProviderAdapter(
             vlm_instance=effective_vlm.get_vlm_instance(),
             default_model=effective_vlm.model or credentials[0].model or "",
-            langfuse_client=langfuse_client,
         )
 
     # When provider is explicitly set, use VLMFactory to get the correct
@@ -513,7 +510,6 @@ def _make_provider(config, langfuse_client: Any = None):
         return VLMProviderAdapter(
             vlm_instance=vlm_instance,
             default_model=model,
-            langfuse_client=langfuse_client,
         )
 
     raise RuntimeError(
@@ -685,24 +681,7 @@ def prepare_agent_loop(config, bus, session_manager, cron, quiet: bool = False, 
             f"Sandbox: enabled (backend={config.sandbox.backend}, mode={config.sandbox.mode})"
         )
 
-    # Initialize Langfuse if enabled
-    langfuse_client = None
-    # logger.info(f"[LANGFUSE] Config check: has langfuse attr={hasattr(config, 'langfuse')}")
-
-    if hasattr(config, "langfuse") and config.langfuse.enabled:
-        langfuse_client = LangfuseClient(
-            enabled=config.langfuse.enabled,
-            secret_key=config.langfuse.secret_key,
-            public_key=config.langfuse.public_key,
-            base_url=config.langfuse.base_url,
-        )
-        LangfuseClient.set_instance(langfuse_client)
-        if langfuse_client.enabled:
-            logger.info(f"Langfuse: enabled (base_url={config.langfuse.base_url})")
-        else:
-            logger.warning("Langfuse: configured but failed to initialize")
-
-    provider = _make_provider(config, langfuse_client)
+    provider = _make_provider(config)
     # Create agent with cron service
     agent = AgentLoop(
         bus=bus,

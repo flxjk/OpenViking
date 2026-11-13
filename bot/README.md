@@ -615,23 +615,6 @@ When an OpenViking upstream is configured, `/api/v1/*` is proxied to OpenViking 
 | `vikingbot cron run` | Run a job manually |
 | `vikingbot feedback-stats` | Aggregate response feedback and outcome metrics |
 
-Enable Langfuse with:
-
-```json
-{
-  "bot": {
-    "langfuse": {
-      "enabled": true,
-      "secret_key": "<langfuse-secret-key>",
-      "public_key": "<langfuse-public-key>",
-      "base_url": "http://localhost:3000"
-    }
-  }
-}
-```
-
-The repository includes `deploy/docker/deploy_langfuse.sh` for local deployment.
-
 ## Security Notes
 
 - Never commit model API Keys, OpenViking API Keys, or Gateway Tokens to the repository.

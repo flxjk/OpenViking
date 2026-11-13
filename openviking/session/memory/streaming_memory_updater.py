@@ -419,7 +419,7 @@ class StreamingMemoryUpdater:
         requests: list[MemoryUpdateRequest],
         reason: str,
     ) -> StreamingMemoryUpdateResult:
-        from openviking.observability.reporting.facts import bind_memory_batch
+        from openviking.observability.facts import bind_memory_batch
 
         # The shared timer can retain a previous commit's root. Only this
         # batch's persisted request metadata is evidence of Task ownership.
@@ -584,6 +584,7 @@ class StreamingMemoryUpdater:
 
             if operations.has_errors():
                 return operations
+            from openviking.observability.facts import bind_memory_batch
 
         # Independent patches on the same old file require a single final write.
         # Same-session sequential updates retain their existing order.

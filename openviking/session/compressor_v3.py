@@ -22,7 +22,7 @@ from uuid import uuid4
 from openviking.config.generation import get_output_language_override
 from openviking.core.context import Context
 from openviking.message import Message
-from openviking.observability.reporting.facts import event_context
+from openviking.observability.facts import event_context
 from openviking.server.identity import RequestContext
 from openviking.session.memory import ExtractLoop, MemoryUpdater, StreamingMemoryUpdaterConfig
 from openviking.session.memory.agent_file import ensure_agent_file

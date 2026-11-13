@@ -88,7 +88,7 @@ MetricRegistry 保留 OpenViking 的指标名、标签约束和账户维度规�
 
 ### Exporter
 
-`/metrics` 使用官方 Prometheus Python 客户端输出文本；OTLP HTTP/gRPC 使用 OpenTelemetry 官方导出器处理编码、发送和重试。现有 endpoint、headers、TLS 和上报周期配置保持不变。
+`/metrics` 使用官方 Prometheus Python 客户端输出文本。OpenViking 只在本机导出指标，不配置外部指标导出器。
 
 ## 使用方式
 
@@ -146,7 +146,7 @@ scrape_configs:
 按每个十倍数量级的 1、2、5 档覆盖到 5,000,000 秒（约 58 天），超出范围仍计入 `+Inf`。
 这里的范围不是任务超时；看板不应通过 `< 10` 或固定纵轴上限过滤慢请求。
 
-Prometheus 的 `_bucket`、`_count`、`_sum` 和 OTLP Histogram 都带有 `bucket_schema`，
+Prometheus 的 `_bucket`、`_count`、`_sum` 都带有 `bucket_schema`，
 该标签由实际桶边界计算，采集器不能自行设置。**聚合分位数时必须保留 `bucket_schema`**，避免滚动升级时把
 新旧分桶混算。没有该标签的旧数据会形成独立的一组；其已经合并到最后一桶的细节无法恢复。
 
@@ -548,19 +548,11 @@ max by (job) (openviking_feedback_events_total{valid="0"})
 ### Exporters 配置
 
 默认情况下，OpenViking 会通过 Prometheus exposition 格式在 `/metrics` 输出指标。
-如果希望在保留 `/metrics` 的同时把同一份进程内指标导出到 OTLP 后端，可以在 `server.observability.metrics.exporters` 下启用 exporter。
+指标只保留在进程内，不提供远程推送 exporter。
 
 关键字段：
 
 - `server.observability.metrics.exporters.prometheus.enabled`：是否启用 Prometheus exporter（提供 `/metrics`）
-- `server.observability.metrics.exporters.otel.enabled`：是否启用 OTLP 导出（复用同一份 registry）
-- `server.observability.metrics.exporters.otel.protocol`：`"grpc"` 或 `"http"`
-- `server.observability.metrics.exporters.otel.tls.insecure`：仅对 OTLP/gRPC 生效；`true` 表示明文连接（无 TLS）
-- `server.observability.metrics.exporters.otel.endpoint`：OTLP 端点（gRPC 用 `host:4317`；HTTP 必须是完整 URL）
-- `server.observability.metrics.exporters.otel.service_name`：OTLP `service.name` 资源属性；省略时默认继承顶层 `service_name`
-- `server.observability.metrics.exporters.otel.export_interval_ms`：OTLP 推送间隔，单位毫秒（默认 `10000`）
-- `server.observability.metrics.exporters.otel.headers`：可选的自定义 OTLP 请求头；gRPC 会作为 metadata 发送，HTTP 会作为 headers 发送
-- 使用 gRPC 时，`headers` 中的 key 需要使用小写形式，例如 `x-byteapm-appkey`；HTTP 不受该限制
 
 示例：
 
@@ -573,17 +565,6 @@ max by (job) (openviking_feedback_events_total{valid="0"})
         "exporters": {
           "prometheus": {
             "enabled": true
-          },
-          "otel": {
-            "enabled": true,
-            "protocol": "grpc",
-            "tls": {
-              "insecure": true
-            },
-            "endpoint": "otel-collector:4317",
-            "service_name": "openviking-server",
-            "export_interval_ms": 10000,
-            "headers": {}
           }
         }
       }

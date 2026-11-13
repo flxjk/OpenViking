@@ -102,11 +102,9 @@ Every final reply receives a `response_id`. Clients may submit thumbs up, thumbs
 
 When the user continues the conversation, Outcome Evaluator can infer whether the previous reply succeeded from subsequent behavior and emit a `response_outcome_evaluated` event. `vikingbot feedback-stats` aggregates local Sessions to report feedback coverage, ratings, outcome status, tool usage, and latency.
 
-## Langfuse and Logging
+## Feedback and Logging
 
-With `bot.langfuse.enabled=true`, model calls, token usage, latency, tool events, and outcome metadata are sent to Langfuse. A Langfuse initialization failure does not block the main Bot flow.
-
-Runtime logs use Loguru. Gateway's `--verbose` flag enables more detailed logs. Analytics-only events are separated from normal replies and are not accidentally sent to chat platforms.
+Feedback and outcome events are recorded locally with the Bot session data and can be summarized with `vikingbot feedback-stats`. Runtime logs use Loguru, and Gateway's `--verbose` flag enables more detailed logs. Analytics-only events are separated from normal replies and are not sent to chat platforms.
 
 ## Implementation Locations
 
@@ -118,7 +116,6 @@ Runtime logs use Loguru. Gateway's `--verbose` flag enables more detailed logs. 
 | API models | `vikingbot/channels/openapi_models.py` |
 | Runtime assembly | `vikingbot/cli/commands.py` |
 | Feedback and outcomes | `vikingbot/observability/` |
-| Langfuse | `vikingbot/integrations/langfuse.py` |
 
 ## Related Documentation
 

@@ -78,7 +78,7 @@ Both use the same AgentLoop and can deliver results to the original Session and 
 - the Bot HTTP API and SSE streaming events;
 - AgentLoop, Sessions, Cron, and Heartbeat;
 - OpenViking API proxying;
-- user feedback, outcome evaluation, logs, and optional Langfuse observability.
+- user feedback, outcome evaluation, and logs.
 
 After an OpenViking upstream is configured, Bot Chat and `/api/v1/*` can use the same Gateway address. The Gateway Token and OpenViking user identity remain separate security boundaries.
 

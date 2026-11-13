@@ -24,26 +24,6 @@ try:
     from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter, SpanExportResult
     from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
-    try:
-        from google.protobuf.json_format import MessageToDict
-        from opentelemetry.exporter.otlp.proto.common.trace_encoder import encode_spans
-    except ImportError:
-        MessageToDict = None
-        encode_spans = None
-
-    try:
-        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
-            OTLPSpanExporter as OTLPGrpcSpanExporter,
-        )
-    except ImportError:
-        OTLPGrpcSpanExporter = None
-
-    try:
-        from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
-            OTLPSpanExporter as OTLPHttpSpanExporter,
-        )
-    except ImportError:
-        OTLPHttpSpanExporter = None
 except ImportError:
     otel_trace = None
     TracerProvider = None
@@ -52,15 +32,11 @@ except ImportError:
     BatchSpanProcessor = None
     SpanExporter = None
     SpanExportResult = None
-    OTLPGrpcSpanExporter = None
-    OTLPHttpSpanExporter = None
     TraceContextTextMapPropagator = None
     Context = None
     extract = None
     inject = None
     Resource = None
-    MessageToDict = None
-    encode_spans = None
 
 
 # Global tracer instance
@@ -76,12 +52,46 @@ def _log_trace_internal_failure(message: str) -> None:
 _SpanExporterBase = SpanExporter if SpanExporter is not None else object
 
 
-class LocalJsonlSpanExporter(_SpanExporterBase):
-    """OpenTelemetry span exporter that writes OTLP JSON batches to a local JSONL file.
+def _span_to_dict(span: Any) -> dict[str, Any]:
+    """Serialize a ReadableSpan into a plain JSON-compatible mapping."""
+    context = getattr(span, "context", None)
+    parent = getattr(span, "parent", None)
+    status = getattr(span, "status", None)
+    events = []
+    for event in getattr(span, "events", ()) or ():
+        events.append(
+            {
+                "name": getattr(event, "name", ""),
+                "timestamp": getattr(event, "timestamp", 0),
+                "attributes": dict(getattr(event, "attributes", {}) or {}),
+            }
+        )
+    return {
+        "trace_id": format(context.trace_id, "032x") if context is not None else "",
+        "span_id": format(context.span_id, "016x") if context is not None else "",
+        "parent_span_id": (
+            format(parent.span_id, "016x")
+            if parent is not None and getattr(parent, "span_id", None)
+            else ""
+        ),
+        "name": getattr(span, "name", ""),
+        "kind": str(getattr(span, "kind", "")),
+        "start_time_unix_nano": getattr(span, "start_time", 0),
+        "end_time_unix_nano": getattr(span, "end_time", 0),
+        "attributes": dict(getattr(span, "attributes", {}) or {}),
+        "events": events,
+        "status": {
+            "status_code": str(getattr(status, "status_code", "")),
+            "description": getattr(status, "description", None),
+        },
+    }
 
-    Each exported batch is encoded as one JSON line using the protobuf JSON
-    representation of ``ExportTraceServiceRequest``. The file is rotated by
-    size and is intended for offline support/debug upload.
+
+class LocalJsonlSpanExporter(_SpanExporterBase):
+    """OpenTelemetry span exporter that writes span batches to a local JSONL file.
+
+    Each exported batch is encoded as one JSON line. The file is rotated by
+    size and never leaves the local machine.
     """
 
     def __init__(
@@ -91,12 +101,7 @@ class LocalJsonlSpanExporter(_SpanExporterBase):
         rotation_mb: int = 40,
         backup_count: int = 2,
     ) -> None:
-        if (
-            SpanExporter is None
-            or SpanExportResult is None
-            or MessageToDict is None
-            or encode_spans is None
-        ):
+        if SpanExporter is None or SpanExportResult is None:
             raise ImportError("OpenTelemetry trace exporter dependencies are not available")
         super().__init__()
         self._path = Path(os.path.expandvars(os.path.expanduser(path)))
@@ -118,13 +123,10 @@ class LocalJsonlSpanExporter(_SpanExporterBase):
             return SpanExportResult.SUCCESS
 
         try:
-            request = encode_spans(spans)
-            payload = MessageToDict(
-                request,
-                preserving_proto_field_name=False,
-                always_print_fields_with_no_presence=False,
+            payload = {"spans": [_span_to_dict(span) for span in spans]}
+            line = (
+                json.dumps(payload, ensure_ascii=False, separators=(",", ":"), default=str) + "\n"
             )
-            line = json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n"
             encoded_size = len(line.encode("utf-8"))
             with self._lock:
                 self._rotate_if_needed(encoded_size)
@@ -233,16 +235,8 @@ def init_tracer_from_server_config(server_config: Any) -> Any:
             logger.info("[TRACER] disabled in server.observability.traces")
             return None
 
-        if trace_cfg.protocol.lower() != "local" and not trace_cfg.endpoint:
-            logger.warning("[TRACER] server.observability.traces.endpoint not configured")
-            return None
-
         return init_tracer(
-            endpoint=trace_cfg.endpoint,
             service_name=trace_cfg.service_name,
-            protocol=trace_cfg.protocol,
-            insecure=trace_cfg.tls.insecure,
-            headers=trace_cfg.headers,
             enabled=trace_cfg.enabled,
             local_path=trace_cfg.local_path,
             local_rotation_mb=trace_cfg.local_rotation_mb,
@@ -253,40 +247,19 @@ def init_tracer_from_server_config(server_config: Any) -> Any:
         return None
 
 
-def _init_asyncio_instrumentation() -> None:
-    """Initialize asyncio instrumentation to create child spans for create_task."""
-    try:
-        from opentelemetry.instrumentation.asyncio import AsyncioInstrumentor
-
-        AsyncioInstrumentor().instrument()
-        logger.debug("[TRACER] initialized AsyncioInstrumentor")
-    except ImportError:
-        logger.warning("[TRACER] opentelemetry-instrumentation-asyncio not installed")
-    except Exception as e:
-        logger.warning(f"[TRACER] failed to init AsyncioInstrumentor: {e}")
-
-
 def init_tracer(
-    endpoint: str,
     service_name: str,
-    protocol: str = "grpc",
-    insecure: bool = False,
-    headers: Optional[dict[str, str]] = None,
     enabled: bool = True,
     local_path: str = "~/.openviking/logs/traces.jsonl",
     local_rotation_mb: int = 40,
     local_backup_count: int = 2,
 ) -> Any:
-    """Initialize the OpenTelemetry tracer.
+    """Initialize the local OpenTelemetry tracer.
 
     Args:
-        endpoint: OTLP endpoint
         service_name: Service name for tracing
-        protocol: OTLP protocol ("grpc" or "http")
-        insecure: For OTLP/gRPC only. When True, use plaintext instead of TLS.
-        headers: Additional OTLP exporter headers for vendor-specific auth.
         enabled: Whether to enable tracing
-        local_path: JSONL file path when protocol is "local".
+        local_path: JSONL file path for local span export.
         local_rotation_mb: Maximum size in MB before rotating local JSONL file.
         local_backup_count: Number of rotated local JSONL files to keep.
 
@@ -302,51 +275,21 @@ def init_tracer(
     if otel_trace is None or TracerProvider is None or Resource is None:
         logger.warning(
             "OpenTelemetry not installed. Install with: uv pip install opentelemetry-api "
-            "opentelemetry-sdk opentelemetry-exporter-otlpprotogrpc"
+            "opentelemetry-sdk"
         )
         return None
 
     try:
-        normalized_headers = {str(key): str(value) for key, value in (headers or {}).items()}
         resource_attributes = {
             "service.name": service_name,
         }
         resource = Resource.create(resource_attributes)
 
-        protocol = protocol.lower()
-        if protocol == "grpc":
-            if OTLPGrpcSpanExporter is None:
-                raise ImportError("gRPC OTLP trace exporter not available")
-            try:
-                trace_exporter = OTLPGrpcSpanExporter(
-                    endpoint=endpoint,
-                    insecure=insecure,
-                    headers=normalized_headers,
-                )
-            except TypeError:
-                trace_exporter = OTLPGrpcSpanExporter(
-                    endpoint=endpoint,
-                    headers=normalized_headers,
-                )
-        elif protocol == "http":
-            if OTLPHttpSpanExporter is None:
-                raise ImportError("HTTP OTLP trace exporter not available")
-            if not endpoint.startswith("http://") and not endpoint.startswith("https://"):
-                raise ValueError(
-                    "OTLP/HTTP trace endpoint must include scheme, e.g. 'http://localhost:4318/v1/traces'"
-                )
-            trace_exporter = OTLPHttpSpanExporter(
-                endpoint=endpoint,
-                headers=normalized_headers,
-            )
-        elif protocol == "local":
-            trace_exporter = LocalJsonlSpanExporter(
-                local_path,
-                rotation_mb=local_rotation_mb,
-                backup_count=local_backup_count,
-            )
-        else:
-            raise ValueError(f"Unsupported trace protocol: {protocol}")
+        trace_exporter = LocalJsonlSpanExporter(
+            local_path,
+            rotation_mb=local_rotation_mb,
+            backup_count=local_backup_count,
+        )
 
         trace_provider = TracerProvider(resource=resource)
         trace_provider.add_span_processor(
@@ -365,14 +308,10 @@ def init_tracer(
         # Setup logging with trace_id
         _setup_logging()
 
-        # Initialize asyncio instrumentation to create child spans for create_task
-        _init_asyncio_instrumentation()
-
         logger.debug(
-            "[TRACER] initialized with service_name=%s, protocol=%s, endpoint=%s",
+            "[TRACER] initialized with service_name=%s, local_path=%s",
             service_name,
-            protocol,
-            endpoint,
+            local_path,
         )
         return _otel_tracer
 

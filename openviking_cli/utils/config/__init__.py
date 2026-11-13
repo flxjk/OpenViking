@@ -89,7 +89,6 @@ from .rerank_config import RerankConfig
 from .retrieval_config import RetrievalConfig
 from .rules_config import RulesConfig
 from .storage_config import StorageConfig
-from .telemetry_config import TelemetryConfig, TracerConfig
 from .vectordb_config import OpenGaussConfig, VectorDBBackendConfig
 from .vlm_config import VLMConfig
 
@@ -179,8 +178,6 @@ __all__ = [
     "resolve_config_path",
     "set_openviking_config",
     "is_valid_openviking_config",
-    "TelemetryConfig",
-    "TracerConfig",
     "GitConfig",
     "GitLocalConfig",
     "GitS3Config",

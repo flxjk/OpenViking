@@ -216,7 +216,7 @@ For the full field reference, supported operations, and more examples, see:
 
 ## Generate a local trace and submit it for troubleshooting
 
-If `telemetry.summary` in the response is not enough to diagnose a problem, you can ask OpenViking to write OpenTelemetry traces to a local JSONL file. The user submits the JSONL file and the problematic `trace_id` to an administrator/support engineer, and the administrator uploads it to the troubleshooting environment for analysis. This is useful for offline customer environments, environments that cannot directly reach an OTLP backend, or cases where support needs the exact reproduction trace.
+If `telemetry.summary` in the response is not enough to diagnose a problem, you can ask OpenViking to write OpenTelemetry traces to a local JSONL file. This is useful for offline customer environments, environments that cannot directly reach a remote tracing backend, or cases where support needs the exact reproduction trace.
 
 ### 1. Enable local trace output
 
@@ -271,9 +271,9 @@ If no file is created or the file is empty, check:
 
 ### 3. Submit the trace file to an administrator
 
-This step is normally split between the **user who submits the evidence** and the **administrator/support engineer who uploads and investigates it**:
+This step is normally split between the **user who submits the evidence** and the **administrator/support engineer who investigates it**:
 
-1. The user does not need to upload directly to the troubleshooting backend. Submit the local JSONL file to the administrator/support engineer.
+1. The user submits the local JSONL file to the administrator/support engineer.
 2. If you already know the problematic `trace_id`, submit it together with the JSONL file.
 3. If you do not know the exact `trace_id`, provide the reproduction time window, steps, and related request/error logs so the administrator can locate it in the file.
 
@@ -299,63 +299,6 @@ Include the following for the administrator/support engineer:
 - the time window and steps used to reproduce the issue
 - OpenViking version/commit, startup command, and relevant config with secrets removed
 - related error logs or request IDs, if available
-
-#### Administrator upload reference
-
-From the repository root on a machine with the OpenViking source checkout and access to the remote OTLP troubleshooting environment, the administrator runs:
-
-```bash
-python tests/upload_offline_trace.py \
-  --file /path/to/traces.jsonl
-```
-
-The upload tool reads the current environment's `ov.conf` as the **upload target configuration**, so that config must use a remote OTLP trace exporter, for example:
-
-```json
-{
-  "server": {
-    "observability": {
-      "traces": {
-        "enabled": true,
-        "protocol": "grpc",
-        "tls": {
-          "insecure": true
-        },
-        "endpoint": "otel-collector:4317",
-        "service_name": "openviking-server",
-        "headers": {}
-      }
-    }
-  }
-}
-```
-
-If the current `ov.conf` is not the upload target config, prepare a separate upload config and pass it with `--config`:
-
-```bash
-python tests/upload_offline_trace.py \
-  --file /path/to/traces.jsonl \
-  --config /path/to/upload-ov.conf
-```
-
-By default, rotated files are uploaded from old to new, for example `traces.jsonl.2`, `traces.jsonl.1`, and `traces.jsonl`. To upload only the current file:
-
-```bash
-python tests/upload_offline_trace.py \
-  --file /path/to/traces.jsonl \
-  --no-include-rotated
-```
-
-After a successful upload, the tool prints the uploaded trace IDs. The administrator can continue troubleshooting with the `trace_id` submitted by the user or with the reproduction time window:
-
-```text
-Uploaded:
-  batches: 12
-  spans: 345
-  trace_ids: 3
-    0123456789abcdef0123456789abcdef
-    ...
-```
 
 ## Use `/metrics` for time-series observability
 
@@ -401,7 +344,6 @@ OpenViking groups signal-level observability configuration under `server.observa
 
 - `server.observability.metrics`: metrics subsystem and exporters
 - `server.observability.traces`: trace export configuration
-- `server.observability.logs`: log export configuration
 - `server.observability.dump_body`: attaches HTTP request/response bodies (filtered by content-type, truncated by bytes) as attributes on the active trace span so they can be inspected in trace UIs. Off by default — bodies may contain secrets and high-cardinality content
 - `server.observability.usage_audit`: per-request usage/cost audit log, stored in SQLite. `sqlite_path` overrides the database location (use a per-instance local path for multi-instance deployments); `timezone` controls timestamp localization. Enabled by default
 
@@ -416,39 +358,16 @@ Example:
         "exporters": {
           "prometheus": {
             "enabled": true
-          },
-          "otel": {
-            "enabled": true,
-            "protocol": "grpc",
-            "tls": {
-              "insecure": true
-            },
-            "endpoint": "otel-collector:4317",
-            "service_name": "openviking-server",
-            "export_interval_ms": 10000,
-            "headers": {}
           }
         }
       },
       "traces": {
         "enabled": true,
-        "protocol": "grpc",
-        "tls": {
-          "insecure": true
-        },
-        "endpoint": "otel-collector:4317",
+        "protocol": "local",
         "service_name": "openviking-server",
-        "headers": {}
-      },
-      "logs": {
-        "enabled": true,
-        "protocol": "grpc",
-        "tls": {
-          "insecure": true
-        },
-        "endpoint": "otel-collector:4317",
-        "service_name": "openviking-server",
-        "headers": {}
+        "local_path": "~/.openviking/logs/traces.jsonl",
+        "local_rotation_mb": 40,
+        "local_backup_count": 2
       },
       "dump_body": {
         "enabled": false,
@@ -463,13 +382,6 @@ Example:
   }
 }
 ```
-
-Notes:
-
-- `headers` forwards custom OTLP request headers or gRPC metadata to the exporter.
-- This is useful when an OTLP backend requires extra auth headers for direct ingestion.
-- The `headers` shape is the same across `traces`, `logs`, and `metrics.exporters.otel`.
-- When `protocol="grpc"`, `headers` are sent as gRPC metadata and keys should be lowercase, for example `x-byteapm-appkey`; this restriction does not apply to `protocol="http"`.
 
 For full fields, supported ranges, and more examples, see:
 
@@ -571,68 +483,6 @@ The most common labels you will use while investigating dashboards are:
 - To verify whether resources really landed and vectors were actually written, use `ov tui`
 - To inspect why one specific request was slow, where tokens went, or which stage blocked resource processing, use `telemetry`
 - To inspect whether request volume, error rates, or latency are degrading over time, use `/metrics`
-
-## Optional Kafka event reporting
-
-Install `openviking[reporting]` and enable both `server.observability.reporting.enabled`
-and `server.observability.reporting.telemetry.enabled` in `ov.conf`.
-The exporter reads Kafka connection, authentication and topic settings from
-`reporting.kafka`, and queue and deployment settings from `reporting.telemetry`.
-Reporting is disabled by default and export failures do not interrupt business requests.
-
-The exporter uses an in-memory queue; `telemetry.queue_capacity` must be a positive
-integer (default `1024`). Full queues, exhausted delivery retries and process
-termination can lose events. Delivery failures and dropped events produce sampled
-warnings containing counts only. This exporter is suitable for best-effort analytics;
-it does not provide a durable audit or billing ledger. Allow a graceful shutdown to
-drain the queue before stopping the process.
-
-Deployments may set `account_id`, `resource_id` and `region` in `reporting.telemetry.deployment`.
-`OV_METRICS_ACCOUNT_ID`, `OV_RESOURCE_ID` and `OV_REGION` remain fallback values.
-Original space and member identities remain in `ov_account_id` and `ov_user_id`.
-Set `OV_MODEL_COST_BEARER` to `customer` or `ov`
-only when the deployment knows who owns its model credentials. Otherwise the
-owner stays `unknown`. For mixed credentials, trusted provisioning should set
-`cost_bearer` (`ov`, `customer`, or `unknown`) on each VLM or embedding credential.
-The selected credential's metadata follows successful and failed calls, including
-failover candidates. An explicit `unknown` remains unknown; endpoint rules or a
-deployment default cannot relabel it. Only legacy calls without credential metadata
-use precise `telemetry.model_cost_bearers` rules and then the deployment default;
-conflicting rules stay `unknown`. Events exclude document content, prompts and API keys.
-
-Shared memory batches derive reporting ownership from the current input requests,
-not the long-lived timer's inherited request context. A model call shared by several
-commits is exported once with `source_task_ids` listing the known input Tasks;
-`task_id` and `request_id` are empty when there is no single confirmed owner. Do
-not fan out that call or charge its full token usage to every listed Task. File
-changes recover their trusted operation source when it is unambiguous; a write
-that actually combines multiple Tasks uses the same multi-source representation.
-Space/member identity still comes from the batch's request context. Incremental
-resource re-imports also emit a deletion event after each planned deletion succeeds.
-
-When ROOT provisions or rotates account model credentials through the configuration API,
-`cost_bearer` is persisted with each credential and reaches the selected VLM or embedding
-client. Model sections remain ROOT-only; account admins and members cannot set billing
-ownership through the configuration API.
-
-Example value for `server.observability.reporting` in `ov.conf`:
-
-```json
-{
-  "enabled": true,
-  "kafka": {
-    "bootstrap_servers": "broker.example:9092",
-    "topic": "metric-log"
-  },
-  "telemetry": {
-    "enabled": true
-  }
-}
-```
-
-To migrate from Nacos or an external reporting JSON file, move its `kafka` and
-`telemetry` sections into `ov.conf` and restart the kernel. Supply literal strings
-in `reporting`, including any Kafka credentials.
 
 ## Related Documentation
 

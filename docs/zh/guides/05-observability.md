@@ -216,7 +216,7 @@ curl -X POST http://localhost:1933/api/v1/search/find \
 
 ## 产生本地 Trace 并提交排查
 
-如果一次问题无法只靠响应里的 `telemetry.summary` 判断，可以让 OpenViking 把 OpenTelemetry trace 写到本地 JSONL 文件。用户把 JSONL 文件和有问题的 `trace_id` 提交给管理员/支持人员，由管理员上传到排查环境并继续分析。这个方式适合离线客户环境、无法直连 OTLP 后端的环境，或者需要把复现过程打包给支持人员分析的场景。
+如果一次问题无法只靠响应里的 `telemetry.summary` 判断，可以让 OpenViking 把 OpenTelemetry trace 写到本地 JSONL 文件。这个方式适合离线客户环境、无法直连远端追踪后端的环境，或者需要把复现过程打包给支持人员分析的场景。
 
 ### 1. 开启本地 trace 文件
 
@@ -271,9 +271,9 @@ tail -n 3 ~/.openviking/logs/traces.jsonl
 
 ### 3. 提交 trace 文件给管理员
 
-这一步通常由**用户提交材料，管理员/支持人员上传并排查**：
+这一步通常由**用户提交材料，管理员/支持人员排查**：
 
-1. 用户不要直接上传到排查环境，只需要把本地 JSONL 文件交给管理员/支持人员。
+1. 用户只需要把本地 JSONL 文件交给管理员/支持人员。
 2. 如果已经知道有问题的 `trace_id`，请和 JSONL 一起提交。
 3. 如果不确定具体 `trace_id`，请至少提供复现时间段、操作步骤和相关请求/错误日志，方便管理员从文件中定位。
 
@@ -299,63 +299,6 @@ tar czf /tmp/openviking-traces.tgz traces.jsonl*
 - 复现问题的时间段和操作步骤
 - OpenViking 版本/commit、启动命令、关键配置（去掉密钥和 token）
 - 相关错误日志或请求 id（如果有）
-
-#### 管理员上传参考
-
-管理员在有 OpenViking 源码、且能访问远端 OTLP 排查环境的机器上，从仓库根目录运行：
-
-```bash
-python tests/upload_offline_trace.py \
-  --file /path/to/traces.jsonl
-```
-
-上传脚本会读取当前环境的 `ov.conf` 作为**上传目标配置**，因此该配置里的 trace exporter 必须是远端 OTLP，例如：
-
-```json
-{
-  "server": {
-    "observability": {
-      "traces": {
-        "enabled": true,
-        "protocol": "grpc",
-        "tls": {
-          "insecure": true
-        },
-        "endpoint": "otel-collector:4317",
-        "service_name": "openviking-server",
-        "headers": {}
-      }
-    }
-  }
-}
-```
-
-如果当前 `ov.conf` 不是上传目标配置，请准备一个单独的上传配置，并通过 `--config` 指定：
-
-```bash
-python tests/upload_offline_trace.py \
-  --file /path/to/traces.jsonl \
-  --config /path/to/upload-ov.conf
-```
-
-默认会按从旧到新的顺序一并上传轮转文件（例如 `traces.jsonl.2`、`traces.jsonl.1`、`traces.jsonl`）。如果只想上传当前文件：
-
-```bash
-python tests/upload_offline_trace.py \
-  --file /path/to/traces.jsonl \
-  --no-include-rotated
-```
-
-上传成功后，脚本会打印本次上传的 trace id 列表；管理员可结合用户提交的 `trace_id` 或复现时间段继续排查：
-
-```text
-Uploaded:
-  batches: 12
-  spans: 345
-  trace_ids: 3
-    0123456789abcdef0123456789abcdef
-    ...
-```
 
 ## 用 `/metrics` 做时序观测
 
@@ -400,7 +343,6 @@ OpenViking 将信号级别的可观测性配置统一放在 `server.observabilit
 
 - `server.observability.metrics`：metrics 子系统与 exporter 配置
 - `server.observability.traces`：trace 导出配置
-- `server.observability.logs`：log 导出配置
 - `server.observability.dump_body`：把 HTTP 请求/响应 body（按 content-type 过滤、按字节截断）作为属性挂到当前 trace span 上，便于在 trace UI 中调试。默认关闭，因为 body 可能含密钥/高基数内容
 - `server.observability.usage_audit`：按请求记录用量/成本审计日志，使用 SQLite 存储。`sqlite_path` 可覆盖数据库位置（多实例部署时设为每实例独立的本地路径）；`timezone` 控制时间戳的时区本地化。默认开启
 
@@ -415,39 +357,16 @@ OpenViking 将信号级别的可观测性配置统一放在 `server.observabilit
         "exporters": {
           "prometheus": {
             "enabled": true
-          },
-          "otel": {
-            "enabled": true,
-            "protocol": "grpc",
-            "tls": {
-              "insecure": true
-            },
-            "endpoint": "otel-collector:4317",
-            "service_name": "openviking-server",
-            "export_interval_ms": 10000,
-            "headers": {}
           }
         }
       },
       "traces": {
         "enabled": true,
-        "protocol": "grpc",
-        "tls": {
-          "insecure": true
-        },
-        "endpoint": "otel-collector:4317",
+        "protocol": "local",
         "service_name": "openviking-server",
-        "headers": {}
-      },
-      "logs": {
-        "enabled": true,
-        "protocol": "grpc",
-        "tls": {
-          "insecure": true
-        },
-        "endpoint": "otel-collector:4317",
-        "service_name": "openviking-server",
-        "headers": {}
+        "local_path": "~/.openviking/logs/traces.jsonl",
+        "local_rotation_mb": 40,
+        "local_backup_count": 2
       },
       "dump_body": {
         "enabled": false,
@@ -462,13 +381,6 @@ OpenViking 将信号级别的可观测性配置统一放在 `server.observabilit
   }
 }
 ```
-
-说明：
-
-- `headers` 用于给 OTLP exporter 透传自定义请求头或 gRPC metadata。
-- 常见场景包括直连需要额外鉴权头的 OTLP 后端；请只配置 header key/value，不要把敏感值写入日志或截图中。
-- 对 `traces`、`logs` 和 `metrics.exporters.otel` 三条链路，`headers` 的配置方式保持一致。
-- 当 `protocol="grpc"` 时，`headers` 会作为 gRPC metadata 发送，key 需要使用小写形式，例如 `x-byteapm-appkey`；该限制不适用于 `protocol="http"`。
 
 完整字段、支持范围和更多示例见：
 
@@ -563,58 +475,6 @@ OpenViking 仓库里已经提供了可直接导入的 dashboard JSON：
 - 看资源是否真的落库、向量是否真的写进去：看 `ov tui`
 - 看某一次具体请求为什么慢、token 花在哪、资源处理卡在哪个阶段：看 `telemetry`
 - 看一段时间内请求量、错误率、时延是否持续恶化：看 `/metrics`
-
-## 可选 Kafka 事件上报
-
-安装 `openviking[reporting]`，并在 `ov.conf` 中开启 `server.observability.reporting.enabled`
-和 `server.observability.reporting.telemetry.enabled`。
-上报器从 `reporting.kafka` 读取 Kafka 的地址、认证和 topic，
-从 `reporting.telemetry` 读取队列和部署标识。
-该功能默认关闭，业务调用不会因上报失败而中断。
-
-上报器使用内存队列；`telemetry.queue_capacity` 必须为正整数，默认 `1024`。
-队列满、投递重试耗尽或进程退出时可能丢失事件。投递失败和丢弃事件会输出采样告警，
-日志只包含数量。此上报器适用于允许少量丢失的分析统计，不提供持久化审计或计费账本
-保证。停止服务时应预留优雅退出时间，等待队列发送完成。
-
-部署可在 `reporting.telemetry.deployment` 中设置 `account_id`、`resource_id` 和 `region`。
-`OV_METRICS_ACCOUNT_ID`、`OV_RESOURCE_ID` 和 `OV_REGION` 仍可用作后备值。
-原始数据空间和成员保留为 `ov_account_id`、`ov_user_id`。仅当部署能够确定模型凭据
-归属时，设置 `OV_MODEL_COST_BEARER=customer` 或 `ov`；未设置时保持 `unknown`。
-混用不同归属的凭据时，可信部署配置应在每个 VLM／Embedding 凭据上分别设置
-`cost_bearer`（`ov`、`customer` 或 `unknown`）。实际选中的凭据将此元数据带入成功及失败
-调用事件，候选凭据切换时分别归属。明确的 `unknown` 不会被端点规则或整库默认值改写；
-只有未携带凭据元数据的历史调用才依次使用 `telemetry.model_cost_bearers` 精确规则和
-部署默认值，冲突规则保持 `unknown`。上报不包含原文、提示词或 API Key。
-
-共享记忆批处理根据本批输入请求确定上报归属，不使用长期存活的定时协程继承的旧请求。
-多个提交共用的模型调用只上报一次，通过 `source_task_ids` 保留已知来源任务；无法确定
-唯一归属时，`task_id`、`request_id` 为空。不能将这次调用展开为多条，也不能把整次 Token
-用量重复计到每个来源任务。文件变更能明确匹配输入操作时，恢复该操作的完整任务来源；
-真正合并多个任务的写入也采用上述多来源表达。空间和成员身份仍来自本批请求上下文。
-资源增量重新导入的删除路径也会在计划删除成功后上报删除事件。
-
-空间级模型凭据通过 ROOT 的配置接口下发或轮换时，`cost_bearer` 与该凭据一同保存，
-并传递到实际 VLM／Embedding 客户端。模型配置章节仍只允许 ROOT 修改，空间管理员
-和普通成员不能通过配置接口指定费用归属。
-
-以下是 `ov.conf` 中 `server.observability.reporting` 的示例值。
-
-```json
-{
-  "enabled": true,
-  "kafka": {
-    "bootstrap_servers": "broker.example:9092",
-    "topic": "metric-log"
-  },
-  "telemetry": {
-    "enabled": true
-  }
-}
-```
-
-迁移时，将 Nacos 或外部 JSON 中的 `kafka` 和 `telemetry` 移到上述位置，再重启内核。
-`reporting` 中的字符串按字面值读取，Kafka 凭据应填入实际值。
 
 ## 相关文档
 

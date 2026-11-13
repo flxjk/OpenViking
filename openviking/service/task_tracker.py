@@ -492,9 +492,6 @@ class TaskTracker:
         if task_id is not None:
             existing = await self.get(task_id, account_id=account_id, user_id=user_id)
             if existing is not None:
-                from openviking.observability.reporting.facts import remember_request_task
-
-                remember_request_task(existing)
                 return existing
         admission = _admission.get()
         admitted = admission[1] if admission and admission[0] == task_id else None
@@ -548,9 +545,6 @@ class TaskTracker:
                 except BaseException:
                     logger.exception("[TaskTracker] Failed to withdraw Task %s", task.task_id)
             raise
-        from openviking.observability.reporting.facts import remember_request_task
-
-        remember_request_task(created)
         return created
 
     async def create_if_no_running(
@@ -692,28 +686,7 @@ class TaskTracker:
                 user_id=user_id,
             )
         )
-        await self._emit_terminal(task_id, account_id, user_id)
 
-    async def _emit_terminal(self, task_id, account_id, user_id):
-        from openviking.observability.reporting.runtime import is_reporting_enabled
-
-        if not is_reporting_enabled():
-            return
-        try:
-            from openviking.observability.reporting.facts import emit_terminal
-
-            if account_id and user_id:
-                # Work completion is a hot path. MySQL get_task also reads all
-                # started Work intervals to compute processing_seconds, which
-                # telemetry does not need while the Task is still running.
-                status = await self._store.get_task_status(
-                    task_id, account_id=account_id, user_id=user_id
-                )
-                if status not in TERMINAL_TASK_STATUSES:
-                    return
-            emit_terminal(await self.get(task_id, account_id=account_id, user_id=user_id))
-        except Exception:
-            logger.warning("Task terminal telemetry could not be projected")
 
     async def cancel(
         self,
@@ -772,8 +745,6 @@ class TaskTracker:
                 user_id=user_id,
             )
         )
-        if result.is_applied:
-            await self._emit_terminal(task_id, account_id, user_id)
         return result
 
     async def register_running_task(
@@ -1089,7 +1060,6 @@ class TaskTracker:
                 task_id, work_id, account_id=account_id, user_id=user_id
             )
         )
-        await self._emit_terminal(task_id, account_id, user_id)
 
     async def reconcile_delivery(
         self,
@@ -1186,7 +1156,6 @@ class TaskTracker:
             account_id=account_id,
             user_id=user_id,
         )
-        await self._emit_terminal(task_id, account_id, user_id)
 
     async def _finish_work(
         self,
@@ -1212,7 +1181,6 @@ class TaskTracker:
                 user_id=user_id,
             )
         )
-        await self._emit_terminal(task_id, account_id, user_id)
 
     async def record_work_error(
         self,
@@ -1239,7 +1207,6 @@ class TaskTracker:
                 task_id, work_id, account_id=account_id, user_id=user_id
             )
         )
-        await self._emit_terminal(task_id, account_id, user_id)
 
     async def is_cancelling(
         self,

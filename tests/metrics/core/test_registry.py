@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: AGPL-3.0
 
 import pytest
-from opentelemetry.exporter.otlp.proto.common.metrics_encoder import encode_metrics
 from prometheus_client.parser import text_string_to_metric_families
 
 from openviking.metrics.core.registry import DEFAULT_LATENCY_BUCKETS, MetricRegistry
@@ -55,13 +54,13 @@ def test_histogram_boundary_bucket(registry, render_prometheus):
         assert buckets[bound] == sum(value <= bound for value in durations)
     assert buckets[float("inf")] == len(durations)
     schema = family.samples[0].labels["bucket_schema"]
-    request = encode_metrics(registry.collect())
-    point = request.resource_metrics[0].scope_metrics[0].metrics[0].histogram.data_points[0]
+    data = registry.collect()
+    point = data.resource_metrics[0].scope_metrics[0].metrics[0].data.data_points[0]
     assert tuple(point.explicit_bounds) == DEFAULT_LATENCY_BUCKETS
     assert point.count == sum(point.bucket_counts) == len(durations)
     assert point.bucket_counts[-1] == 0
     assert point.sum == pytest.approx(sum(durations))
-    assert {a.key: a.value.string_value for a in point.attributes} == {"bucket_schema": schema}
+    assert dict(point.attributes) == {"bucket_schema": schema}
     legacy = MetricRegistry()
     legacy.observe_histogram("latency_seconds", 60, buckets=(0.05, 0.1, 10.0))
     legacy_family = next(text_string_to_metric_families(render_prometheus(legacy)))
@@ -83,13 +82,13 @@ def test_registry_absolute_values_and_deletion(render_prometheus):
             labels=labels,
             label_names=("plugin",),
         )
-        request = encode_metrics(registry.collect())
-        metrics = {m.name: m for m in request.resource_metrics[0].scope_metrics[0].metrics}
-        counter = metrics["calls_total"].sum.data_points[0]
-        histogram = metrics["latency_seconds"].histogram.data_points[0]
-        assert counter.as_double == histogram.count == value
+        data = registry.collect()
+        metrics = {m.name: m for m in data.resource_metrics[0].scope_metrics[0].metrics}
+        counter = metrics["calls_total"].data.data_points[0]
+        histogram = metrics["latency_seconds"].data.data_points[0]
+        assert counter.value == histogram.count == value
         assert histogram.sum == pytest.approx(value * 0.001)
-        assert not histogram.HasField("min") and not histogram.HasField("max")
+        assert histogram.min is None and histogram.max is None
         if value == 10:
             started = counter.start_time_unix_nano
         elif value == 12:

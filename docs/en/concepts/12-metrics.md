@@ -88,7 +88,7 @@ MetricRegistry keeps OpenViking metric names, label contracts, and account-dimen
 
 ### Exporter
 
-`/metrics` uses the official Prometheus Python client for text exposition. OTLP HTTP/gRPC uses the official OpenTelemetry exporters for encoding, delivery, and retries. Existing endpoint, headers, TLS, and export-interval settings remain unchanged.
+`/metrics` uses the official Prometheus Python client for text exposition. OpenViking only exports metrics locally; no external metrics exporter is configured.
 
 ## Usage
 
@@ -148,7 +148,7 @@ collection policy, so business collectors do not maintain bucket boundaries. Pyt
 (about 58 days). Larger observations remain in `+Inf`. These boundaries are not timeouts;
 dashboards must not filter slow operations with `< 10` or a fixed axis maximum.
 
-Prometheus `_bucket`, `_count`, `_sum` series and OTLP histograms carry `bucket_schema`,
+Prometheus `_bucket`, `_count`, `_sum` series carry `bucket_schema`,
 derived from their actual boundaries; collectors cannot set it themselves.
 **Keep `bucket_schema` when aggregating percentiles**
 so rolling upgrades cannot mix incompatible bucket layouts. Older series without this label
@@ -558,19 +558,11 @@ Recommended mental model:
 ### Exporters
 
 By default, OpenViking exports metrics via Prometheus exposition format at `/metrics`.
-You can also enable additional exporters under `server.observability.metrics.exporters`.
+Metrics stay local to the process; there is no remote push exporter.
 
 Key fields:
 
 - `server.observability.metrics.exporters.prometheus.enabled`: enable the Prometheus exporter (serves `/metrics`)
-- `server.observability.metrics.exporters.otel.enabled`: enable OTLP export from the same in-process registry
-- `server.observability.metrics.exporters.otel.protocol`: `"grpc"` or `"http"`
-- `server.observability.metrics.exporters.otel.tls.insecure`: OTLP/gRPC only; `true` means plaintext (no TLS)
-- `server.observability.metrics.exporters.otel.endpoint`: OTLP endpoint (for gRPC, use `host:4317`; for HTTP, use a full URL)
-- `server.observability.metrics.exporters.otel.service_name`: OTLP `service.name` resource attribute; defaults to top-level `service_name` when omitted
-- `server.observability.metrics.exporters.otel.export_interval_ms`: OTLP push interval in milliseconds (default `10000`)
-- `server.observability.metrics.exporters.otel.headers`: optional custom OTLP headers; sent as gRPC metadata for gRPC and HTTP headers for HTTP
-- When using gRPC, header keys in `headers` should be lowercase, for example `x-byteapm-appkey`; HTTP does not have this restriction
 
 Example:
 
@@ -583,17 +575,6 @@ Example:
         "exporters": {
           "prometheus": {
             "enabled": true
-          },
-          "otel": {
-            "enabled": true,
-            "protocol": "grpc",
-            "tls": {
-              "insecure": true
-            },
-            "endpoint": "otel-collector:4317",
-            "service_name": "openviking-server",
-            "export_interval_ms": 10000,
-            "headers": {}
           }
         }
       }

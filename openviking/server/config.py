@@ -225,21 +225,12 @@ class PrometheusExporterConfig(BaseModel):
     enabled: bool = True
 
 
-class OTelExporterConfig(BaseModel):
-    """OpenTelemetry exporter configuration."""
-
-    class TLSConfig(BaseModel):
-        """TLS configuration for OTLP exporters."""
-
-        insecure: bool = False
+class LocalTraceConfig(BaseModel):
+    """Local-only trace export configuration."""
 
     enabled: bool = False
-    protocol: str = "grpc"  # "grpc", "http", or "local" for traces
-    tls: TLSConfig = Field(default_factory=TLSConfig)
-    endpoint: str = "localhost:4317"  # gRPC default: 4317; HTTP default: 4318
+    protocol: Literal["local"] = "local"
     service_name: str = "openviking-server"
-    export_interval_ms: int = 10000
-    headers: Dict[str, str] = Field(default_factory=dict)
     local_path: str = "~/.openviking/logs/traces.jsonl"
     local_rotation_mb: int = Field(default=40, gt=0)
     local_backup_count: int = Field(default=2, ge=0)
@@ -249,7 +240,6 @@ class MetricsExportersConfig(BaseModel):
     """Metrics exporters configuration."""
 
     prometheus: PrometheusExporterConfig = Field(default_factory=PrometheusExporterConfig)
-    otel: OTelExporterConfig = Field(default_factory=OTelExporterConfig)
 
 
 class MetricsConfig(BaseModel):
@@ -324,23 +314,13 @@ class TraceDumpBodyConfig(BaseModel):
     max_bytes: int = 4096
 
 
-class EventReportingConfig(BaseModel):
-    """Optional business-event exporter configured in ov.conf."""
-
-    enabled: bool = False
-    kafka: Dict[str, Any] = Field(default_factory=dict)
-    telemetry: Dict[str, Any] = Field(default_factory=dict)
-
-
 class ObservabilityConfig(BaseModel):
     """Server-side observability configuration."""
 
     metrics: MetricsConfig = Field(default_factory=MetricsConfig)
     usage_audit: UsageAuditConfig = Field(default_factory=UsageAuditConfig)
-    traces: OTelExporterConfig = Field(default_factory=OTelExporterConfig)
-    logs: OTelExporterConfig = Field(default_factory=OTelExporterConfig)
+    traces: LocalTraceConfig = Field(default_factory=LocalTraceConfig)
     dump_body: TraceDumpBodyConfig = Field(default_factory=TraceDumpBodyConfig)
-    reporting: EventReportingConfig = Field(default_factory=EventReportingConfig)
 
 
 class TempUploadConfig(BaseModel):
