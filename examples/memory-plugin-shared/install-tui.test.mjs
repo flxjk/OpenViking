@@ -92,6 +92,8 @@ test("a pre-existing TRAE home directory keeps TRAE Desktop as the default", (t)
   const result = runInstallerPrelude(`
 PATH=/usr/bin:/bin
 HOME=${JSON.stringify(home)}
+# These cases exercise TRAE detection, independent of an installed desktop app.
+DSH_DESKTOP_OFFERED=0
 refresh_available_harnesses
 HAVE_CURSOR=0
 HAVE_TRAE_CN=0
@@ -114,6 +116,8 @@ test("TRAE CLI configuration does not auto-select the TRAE CLI harness", (t) => 
   const result = runInstallerPrelude(`
 PATH=/usr/bin:/bin
 HOME=${JSON.stringify(home)}
+# These cases exercise TRAE detection, independent of an installed desktop app.
+DSH_DESKTOP_OFFERED=0
 refresh_available_harnesses
 HAVE_CURSOR=0
 HAVE_TRAE_CN=0
@@ -141,6 +145,8 @@ test("TraeCode CLI 2.0 command aliases use the Codex-format selection", (t) => {
     const result = runInstallerPrelude(`
 PATH=${JSON.stringify(`${bin}:/usr/bin:/bin`)}
 HOME=${JSON.stringify(home)}
+# These cases exercise TRAE detection, independent of an installed desktop app.
+DSH_DESKTOP_OFFERED=0
 refresh_available_harnesses
 TUI_CODEX_BINS="$CODEX_BINS"
 add_detected_traecode_cli_alias
