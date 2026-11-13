@@ -8,6 +8,7 @@
 @import '../../shared/primitives/tooltip/tooltip.css';
 @import '../../shared/primitives/resizable/resizable-handle.css';
 @import '../../components/file-browser-action-bar/style.css';
+@import '../../components/file-browser-entries/style.css';
 @import '../../components/file-tree/style.css';
 @import '../../components/file-preview/style.css';
 @import './file-browser.css';

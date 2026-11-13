@@ -3,8 +3,8 @@ import type { Ref } from 'react';
 import type { Locale } from '../../shared/locale.js';
 import { dashboardLabels as resolveDashboardLabels } from './dashboard-labels.js';
 
-import { FileBrowserActionBar } from '../../components/file-browser-action-bar/index.js';
-import type { FileBrowserActionBarProps } from '../../components/file-browser-action-bar/index.js';
+import { FileBrowserEntries } from '../../components/file-browser-entries/index.js';
+import type { FileBrowserEntriesProps } from '../../components/file-browser-entries/index.js';
 import { FileTree } from '../../components/file-tree/index.js';
 import type {
   FileTreeEntryRow,
@@ -32,7 +32,7 @@ import type { FileBrowserApi, FileBrowserDashboardLabels } from './types.js';
 export interface FileBrowserTreePaneProps {
   treeRef?: Ref<FileTreeHandle>;
   entries: Pick<
-    FileBrowserActionBarProps,
+    FileBrowserEntriesProps,
     | 'agentConnect'
     | 'agentConnectOpen'
     | 'onAgentConnectOpenChange'
@@ -73,7 +73,7 @@ export function FileBrowserTreePane({
 }: FileBrowserTreePaneProps) {
   return (
     <>
-      <FileBrowserActionBar
+      <FileBrowserEntries
         {...entries}
         locale={locale}
         className="ov-file-browser__entries"

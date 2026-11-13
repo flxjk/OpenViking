@@ -189,7 +189,7 @@ export const FileBrowser: FileBrowserComponent = forwardRef<
               onAgentConnectOpenChange,
               onImportResources,
               renderImportResources,
-              labels: labels?.actionBar,
+              labels: labels?.entries ?? labels?.actionBar,
             }}
             onSearch={search.show}
             onAdvancedSearch={search.showAdvanced}

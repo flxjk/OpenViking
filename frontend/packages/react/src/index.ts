@@ -14,6 +14,10 @@ export type {
 } from './components/scope-switcher/index.js';
 export { AgentConnect } from './components/agent-connect/index.js';
 export type { AgentConnectProps } from './components/agent-connect/index.js';
+export { FileBrowserEntries } from './components/file-browser-entries/index.js';
+export type { FileBrowserEntriesProps } from './components/file-browser-entries/index.js';
+export { Tui } from './components/tui/index.js';
+export type { TuiProps } from './components/tui/index.js';
 export { VikingBot } from './components/viking-bot/index.js';
 export type { VikingBotProps } from './components/viking-bot/index.js';
 export { FileBrowser } from './modules/file-browser/index.js';

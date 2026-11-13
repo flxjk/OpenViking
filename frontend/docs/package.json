@@ -24,6 +24,7 @@
     "#console-transport": "./docs/_demos/console-transport.ts",
     "#scope-switcher-source": "./docs/_demos/scope-switcher-source.ts",
     "#scope-switcher-requests": "./docs/_demos/scope-switcher-requests.ts",
+    "#file-tree-console-data": "./docs/_demos/file-tree-console-data.ts",
     "#command-console-records": "./docs/_demos/command-console-records.tsx",
     "#command-console-commands": "./docs/_demos/command-console-commands/index.ts",
     "#command-console-demo-result": "./docs/_demos/command-console-demo-result.ts",
@@ -42,6 +43,9 @@
     "#file-preview-actions-data": "./docs/_demos/file-preview-actions-data.tsx",
     "#file-preview-actions.css": "./docs/_demos/file-preview-actions.css",
     "#file-browser-native-demo": "./docs/_demos/file-browser-native-demo.ts",
-    "#file-preview-code-data": "./docs/_demos/file-preview-code-data.ts"
+    "#file-preview-code-data": "./docs/_demos/file-preview-code-data.ts",
+    "#tui-commands": "./docs/_demos/tui-commands/index.ts",
+    "#tui-demo-result": "./docs/_demos/tui-demo-result.ts",
+    "#tui-records": "./docs/_demos/tui-records.tsx"
   }
 }

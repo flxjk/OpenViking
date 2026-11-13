@@ -61,6 +61,16 @@
       "import": "./dist/components/agent-connect.js"
     },
     "./components/agent-connect/style.css": "./dist/components/agent-connect/style.css",
+    "./components/file-browser-entries": {
+      "types": "./dist/components/file-browser-entries/index.d.ts",
+      "import": "./dist/components/file-browser-entries.js"
+    },
+    "./components/file-browser-entries/style.css": "./dist/components/file-browser-entries/style.css",
+    "./components/tui": {
+      "types": "./dist/components/tui/index.d.ts",
+      "import": "./dist/components/tui.js"
+    },
+    "./components/tui/style.css": "./dist/components/tui/style.css",
     "./components/viking-bot": {
       "types": "./dist/components/viking-bot/index.d.ts",
       "import": "./dist/components/viking-bot.js"

@@ -18,6 +18,7 @@ export type {
 import type { Locale } from '../../shared/locale.js';
 import type { AgentConnectProps } from '../../components/agent-connect/index.js';
 import type { FileBrowserActionBarLabels } from '../../components/file-browser-action-bar/index.js';
+import type { FileBrowserEntriesLabels } from '../../components/file-browser-entries/index.js';
 import type { FileBrowserDashboard } from './dashboard-model.js';
 import type {
   FilePreviewLabels,
@@ -174,7 +175,9 @@ export interface FileBrowserLabels {
    * generated yet", and the two call for different actions.
    */
   summaryFailed?: string;
-  /** 操作栏与接入抽屉文案。Copy of the action bar and connection drawer. */
+  /** 文件浏览入口与接入抽屉文案。Copy for the file browser entries and connection drawer. */
+  entries?: FileBrowserEntriesLabels;
+  /** @deprecated Use `entries`. Retained for existing hosts. */
   actionBar?: FileBrowserActionBarLabels;
   /** 目录树文案。Copy of the file tree. */
   tree?: FileTreeLabels;
