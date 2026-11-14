@@ -48,11 +48,21 @@ def _drain(provider):
 def _edit(old_text, content):
     from tools.memory_tool import MEMORY_SCHEMA
 
-    actions = MEMORY_SCHEMA["parameters"]["properties"]["action"]["enum"]
+    properties = MEMORY_SCHEMA["parameters"]["properties"]
+    # New Hermes advertises every change inside operations[]; older releases
+    # also advertise the single-operation fields at the top level.
+    operation_properties = (
+        properties if "action" in properties
+        else properties["operations"]["items"]["properties"]
+    )
+    actions = operation_properties["action"]["enum"]
+    assert "patch" in actions or "replace" in actions
+    replacement_field = "new_text" if "new_text" in operation_properties else "content"
+    assert replacement_field in operation_properties
     return {
         "action": "patch" if "patch" in actions else "replace",
         "old_text": old_text,
-        "new_text": content,
+        replacement_field: content,
     }
 
 

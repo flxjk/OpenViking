@@ -1,5 +1,6 @@
 """Mock gateway turns through the external loader, Hermes manager and HTTP client."""
 
+import inspect
 import json
 import threading
 from contextlib import contextmanager
@@ -181,13 +182,29 @@ def test_gateway_capture_commit_and_sender_scoped_recall(
         session_id="shared-group",
         _emit_status=lambda _: None,
     )
+    # Current Hermes passes the preceding user's ask to memory providers. The
+    # supported release baseline retains the earlier three-argument helper.
+    supports_previous_message = "previous_message" in inspect.signature(
+        _memory_turn_start_and_prefetch
+    ).parameters
+    preceding_messages = []
+    on_turn_start = provider.on_turn_start
+
+    def record_turn_start(*args, **kwargs):
+        if supports_previous_message:
+            preceding_messages.append(kwargs["previous_message"])
+        return on_turn_start(*args, **kwargs)
+
+    monkeypatch.setattr(provider, "on_turn_start", record_turn_start)
+    previous_query = ""
     try:
         with profile_scope(home):
             for index, sender in enumerate(("alice", "bob", "alice"), start=1):
                 author = {"id": sender, "name": sender, "is_bot": False}
                 query = f"Remember my {sender} drink preference"
                 agent._user_turn_count = index
-                recalled = _memory_turn_start_and_prefetch(agent, query, author)
+                metadata = {"previous_message": previous_query} if supports_previous_message else {}
+                recalled = _memory_turn_start_and_prefetch(agent, query, author, **metadata)
                 assert "common" in recalled
                 if scope == "peer":
                     assert sender in recalled
@@ -211,6 +228,13 @@ def test_gateway_capture_commit_and_sender_scoped_recall(
                         {"role": "assistant", "content": "Acknowledged"},
                     ],
                 )
+                previous_query = query
+            if supports_previous_message:
+                assert preceding_messages == [
+                    "",
+                    "Remember my alice drink preference",
+                    "Remember my bob drink preference",
+                ]
             assert manager.flush_pending(timeout=10)
             assert provider._drain_writers("shared-group", timeout=10)
             provider.on_session_end([])

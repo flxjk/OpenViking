@@ -144,6 +144,9 @@ Native edit tests select the action advertised by the host tool schema:
 `patch` on current Hermes and `replace` on the release baseline. Both must
 update the same mapped file. Patch-specific tests also check that text outside
 the edited span is preserved in the native entry and its remote copy.
+Current Hermes advertises change fields under `operations.items.properties`;
+fixtures also recognize the older top-level operation fields and use the
+replacement-text field advertised by that host.
 
 CI also runs `scripts/check-hermes-plugin-install.py` through the real Hermes
 CLI in an isolated profile. It installs this repository's plugin subdirectory,
