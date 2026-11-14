@@ -4,17 +4,12 @@ import '@openviking/react/modules/scope-cascade/style.css';
 
 // Fixed mock APIs, adapted to the same public option shape.
 const api = {
-  loadLibraries: async (_signal: AbortSignal) => [
-    { id: 'demo', label: 'Demo library' },
-  ],
-  loadSpaces: async (_libraryId: string, _signal: AbortSignal) => [
-    { id: 'public', label: 'Public space' },
-  ],
-  loadUsers: async (
-    _libraryId: string,
-    _spaceId: string,
-    _signal: AbortSignal,
-  ) => [{ id: 'default', label: 'Default user' }],
+  loadLibraries: (_signal: AbortSignal) =>
+    Promise.resolve([{ id: 'demo', label: 'Demo library' }]),
+  loadSpaces: (_libraryId: string, _signal: AbortSignal) =>
+    Promise.resolve([{ id: 'public', label: 'Public space' }]),
+  loadUsers: (_libraryId: string, _spaceId: string, _signal: AbortSignal) =>
+    Promise.resolve([{ id: 'default', label: 'Default user' }]),
 };
 
 export default function ScopeCascadeCustom() {

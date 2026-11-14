@@ -385,37 +385,38 @@ async def test_cross_scope_atomic_commit_and_restore(vfs):
 
 
 # =========================================================================
-# 5. Derived files (.abstract.md etc.) versioned with source
+# 5. Derived files (.abstract.md etc.) are pruned from snapshots
 # =========================================================================
 
 
 @pytest.mark.asyncio
-async def test_derived_files_versioned_with_source(vfs):
+async def test_derived_files_are_excluded_from_snapshots(vfs):
     ctx = _make_ctx(account="acct_derived")
     await vfs.write_file("viking://resources/x.md", b"x-body", ctx=ctx)
     await vfs.write_file("viking://resources/x.md.abstract.md", b"abstract-v1", ctx=ctx)
     c1 = await vfs.commit(message="v1", ctx=ctx)
     assert c1["result"] == "created"
-    assert c1["changed"] == 2
+    assert c1["changed"] == 1
 
-    # show finds both
-    assert (
+    assert await vfs.show("main", path="viking://resources/x.md", ctx=ctx) == b"x-body"
+    with pytest.raises(AGFSNotFoundError):
         await vfs.show("main", path="viking://resources/x.md.abstract.md", ctx=ctx)
-        == b"abstract-v1"
-    )
 
-    # Update derived file
+    # Derived summaries stay in the VFS, but are not part of the Git snapshot.
     await vfs.write_file("viking://resources/x.md.abstract.md", b"abstract-v2", ctx=ctx)
-    await vfs.commit(message="v2", paths=["viking://resources/x.md.abstract.md"], ctx=ctx)
+    derived_commit = await vfs.commit(
+        message="v2", paths=["viking://resources/x.md.abstract.md"], ctx=ctx
+    )
+    assert derived_commit["result"] == "noop"
 
-    # Restore to c1 -> derived file reverts too
+    # Restoring the source leaves the unversioned derived data alone.
     await vfs.restore(
         project_dir="viking://resources",
         source_commit=c1["commit_oid"],
         ctx=ctx,
     )
-    body = await vfs.read("viking://resources/x.md.abstract.md", ctx=ctx)
-    assert body == b"abstract-v1"
+    assert await vfs.read("viking://resources/x.md", ctx=ctx) == b"x-body"
+    assert await vfs.read("viking://resources/x.md.abstract.md", ctx=ctx) == b"abstract-v2"
 
 
 # =========================================================================
@@ -630,9 +631,7 @@ def _patch_reindex_executor(monkeypatch, vfs, spy):
     monkeypatch.setattr(vfs, "_vlm_resolver", vlm_resolver)
     monkeypatch.setattr(vfs, "_vector_config_resolver", vector_resolver)
 
-    def factory(*, vlm_resolver, vector_config_resolver):
-        assert vlm_resolver is vfs._vlm_resolver
-        assert vector_config_resolver is vfs._vector_config_resolver
+    def factory():
         return spy
 
     monkeypatch.setattr(reindex_mod, "ReindexExecutor", factory)
@@ -679,11 +678,8 @@ async def restore_reindex_queue(vfs, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_restore_schedules_reindex_for_derived_only_change(vfs, monkeypatch):
-    """When a restore only changes a directory `.abstract.md` (source file
-    unchanged), exactly that directory's L0 vector must be recomputed via
-    reindex_directory_marker — and nothing else (no whole-tree rebuild).
-    """
+async def test_restore_ignores_derived_only_changes(vfs, monkeypatch):
+    """Derived directory summaries are not snapshotted or restored."""
     spy = _SpyExecutor()
 
     _patch_reindex_executor(monkeypatch, vfs, spy)
@@ -694,36 +690,30 @@ async def test_restore_schedules_reindex_for_derived_only_change(vfs, monkeypatc
     c1 = await vfs.commit(message="v1", ctx=ctx)
     assert c1["result"] == "created"
 
-    # Modify ONLY the directory marker; source file untouched
+    # A derived-only commit is a no-op because markers are regenerated data.
     await vfs.write_file("viking://resources/proj/.abstract.md", b"abs-v2", ctx=ctx)
     c2 = await vfs.commit(
         message="v2",
         paths=["viking://resources/proj/.abstract.md"],
         ctx=ctx,
     )
-    assert c2["result"] == "created"
-    assert c2["changed"] == 1
+    assert c2["result"] == "noop"
 
     result = await vfs.restore(
         project_dir="viking://resources/proj",
         source_commit=c1["commit_oid"],
         ctx=ctx,
     )
-    assert result["result"] == "applied"
-    assert "resources/proj/.abstract.md" in result["written_paths"]
-
-    # Let the fire-and-forget tasks run
-    await asyncio.sleep(0)
-    await asyncio.sleep(0)
-
-    assert spy.calls == [("reindex_marker", "viking://resources/proj", 0)]
+    assert result["result"] == "noop"
+    assert await vfs.read("viking://resources/proj/.abstract.md", ctx=ctx) == b"abs-v2"
+    assert spy.calls == []
 
 
 @pytest.mark.asyncio
-async def test_restore_schedules_marker_and_files_independently(vfs, monkeypatch):
-    """Ancestor subsumption is gone: a changed directory marker recomputes the
-    directory's L0/L1, while each changed source file independently reindexes
-    its own DETAIL vector — neither subsumes the other.
+async def test_restore_schedules_source_files_independently(vfs, monkeypatch):
+    """Each restored source file reindexes its own DETAIL vector.
+
+    Directory summaries are derived files and are excluded from snapshots.
     """
     spy = _SpyExecutor()
 
@@ -748,10 +738,9 @@ async def test_restore_schedules_marker_and_files_independently(vfs, monkeypatch
     await asyncio.sleep(0)
     await asyncio.sleep(0)
 
-    # Directory marker recompute + each source file's DETAIL, all independent.
+    # Derived markers are not versioned; each source file is reindexed.
     assert sorted(spy.calls) == sorted(
         [
-            ("reindex_marker", "viking://resources/proj", 0),
             ("reindex_file", "viking://resources/proj/x.md"),
             ("reindex_file", "viking://resources/proj/y.md"),
         ]
@@ -761,7 +750,7 @@ async def test_restore_schedules_marker_and_files_independently(vfs, monkeypatch
 @pytest.mark.asyncio
 async def test_restore_schedules_siblings_independently(vfs, monkeypatch):
     """Source files in sibling directories are each scheduled independently;
-    a directory marker change only affects its own directory.
+    derived directory markers are not included in the restore diff.
     """
     spy = _SpyExecutor()
 
@@ -791,7 +780,6 @@ async def test_restore_schedules_siblings_independently(vfs, monkeypatch):
 
     assert sorted(spy.calls) == sorted(
         [
-            ("reindex_marker", "viking://resources/proj_a", 0),
             ("reindex_file", "viking://resources/proj_a/x.md"),
             ("reindex_file", "viking://resources/proj_b/y.md"),
         ]
@@ -799,10 +787,10 @@ async def test_restore_schedules_siblings_independently(vfs, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_restore_deletes_marker_and_source_vectors(vfs, monkeypatch):
-    """Bug 1 regression: restoring to a revision that predates a whole
-    directory must delete BOTH the directory's L0/L1 marker vectors and the
-    deleted source file's DETAIL vector — no orphaned vectors left behind.
+async def test_restore_deletes_removed_source_vector_only(vfs, monkeypatch):
+    """Deleting a versioned source removes its DETAIL vector.
+
+    Derived directory summaries remain in the VFS and are not part of restore.
     """
     spy = _SpyExecutor()
 
@@ -818,7 +806,7 @@ async def test_restore_deletes_marker_and_source_vectors(vfs, monkeypatch):
     await vfs.write_file("viking://resources/gone/.overview.md", b"ovr", ctx=ctx)
     await vfs.commit(message="v2", ctx=ctx)
 
-    # Restore back to v1: everything under gone/ must be removed.
+    # Restore back to v1 removes the versioned source, not derived sidecars.
     result = await vfs.restore(
         project_dir="viking://resources",
         source_commit=c1["commit_oid"],
@@ -828,11 +816,10 @@ async def test_restore_deletes_marker_and_source_vectors(vfs, monkeypatch):
     await asyncio.sleep(0)
     await asyncio.sleep(0)
 
-    assert ("delete", "viking://resources/gone", 0) in spy.calls
-    assert ("delete", "viking://resources/gone", 1) in spy.calls
     assert ("delete", "viking://resources/gone/g.md", 2) in spy.calls
-    # No whole-tree reindex of the deleted dir.
-    assert all(c[0] != "reindex_marker" or c[1] != "viking://resources/gone" for c in spy.calls)
+    assert await vfs.read("viking://resources/gone/.abstract.md", ctx=ctx) == b"abs"
+    assert await vfs.read("viking://resources/gone/.overview.md", ctx=ctx) == b"ovr"
+    assert not any(c[0] == "delete" and c[1] == "viking://resources/gone" for c in spy.calls)
 
 
 @pytest.mark.asyncio
@@ -937,10 +924,7 @@ async def test_restore_returns_pollable_task_id(vfs, monkeypatch, restore_reinde
         )
         assert [item.task_type for item in tasks] == ["snapshot_restore_reindex"]
 
-        follow_up = await ReindexExecutor(
-            vlm_resolver=vfs._vlm_resolver,
-            vector_config_resolver=vfs._vector_config_resolver,
-        ).execute(
+        follow_up = await ReindexExecutor().execute(
             uri="viking://resources/proj/x.md",
             mode="vectors_only",
             wait=True,

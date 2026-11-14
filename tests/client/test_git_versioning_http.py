@@ -31,6 +31,7 @@ from openviking.service.core import OpenVikingService
 from openviking_cli.client.http import AsyncHTTPClient
 from openviking_cli.session.user_id import UserIdentifier
 from openviking_cli.utils.config.embedding_config import EmbeddingConfig
+from openviking_cli.utils.config.open_viking_config import OpenVikingConfigSingleton
 from openviking_cli.utils.config.vlm_config import VLMConfig
 
 pytest.importorskip("ragfs_python")
@@ -87,23 +88,45 @@ async def http_service(http_temp_dir: Path, monkeypatch):
     fake_embedder_cls = _install_fake_embedder(monkeypatch)
     _install_fake_vlm(monkeypatch)
 
-    svc = OpenVikingService(
-        path=str(http_temp_dir / "data"),
-        user=UserIdentifier.the_default_user("git_http_test_user"),
+    data_dir = http_temp_dir / "data"
+    OpenVikingConfigSingleton.reset_instance()
+    OpenVikingConfigSingleton.initialize(
+        config_dict={
+            "storage": {
+                "workspace": str(data_dir),
+                "agfs": {"backend": "local"},
+                "vectordb": {"backend": "local"},
+            },
+            "embedding": {
+                "dense": {
+                    "provider": "openai",
+                    "model": "test-embedder",
+                    "api_key": "test-key",
+                    "dimension": 1024,
+                }
+            },
+        }
     )
-    await svc.initialize()
-    svc.viking_fs.query_embedder = fake_embedder_cls()
-
-    test_ctx = RequestContext(
-        user=UserIdentifier("git_http_test_account", "git_http_test_user"),
-        role=Role.ADMIN,
-    )
-    await svc.initialize_account_directories(test_ctx)
-    await svc.initialize_user_directories(test_ctx)
+    svc = None
     try:
+        svc = OpenVikingService(
+            path=str(data_dir),
+            user=UserIdentifier.the_default_user("git_http_test_user"),
+        )
+        await svc.initialize()
+        svc.viking_fs.query_embedder = fake_embedder_cls()
+
+        test_ctx = RequestContext(
+            user=UserIdentifier("git_http_test_account", "git_http_test_user"),
+            role=Role.ADMIN,
+        )
+        await svc.initialize_account_directories(test_ctx)
+        await svc.initialize_user_directories(test_ctx)
         yield svc
     finally:
-        await svc.close()
+        if svc is not None:
+            await svc.close()
+        OpenVikingConfigSingleton.reset_instance()
 
 
 @pytest_asyncio.fixture(scope="function")

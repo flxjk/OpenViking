@@ -302,6 +302,8 @@ SPAN_TO_DICT = '''def _span_to_dict(span: Any) -> dict[str, Any]:
 def step_delete_external_subsystems() -> None:
     """Delete modules whose only purpose was external telemetry."""
     _delete("openviking/observability/reporting")
+    # This integration test only exercises the removed Kafka reporting runtime.
+    _delete("tests/observability/test_metric_production_config.py")
     _delete("openviking/metrics/exporters/otel.py")
     _delete("tests/upload_offline_trace.py")
     _delete("openviking_cli/utils/config/telemetry_config.py")

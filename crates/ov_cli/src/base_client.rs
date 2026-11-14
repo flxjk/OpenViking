@@ -714,7 +714,7 @@ mod tests {
     use super::*;
     use serde_json::json;
     use std::time::Duration;
-    use tokio::io::AsyncWriteExt;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
 
     #[test]
@@ -830,9 +830,11 @@ mod tests {
         let address = listener.local_addr().unwrap();
         tokio::spawn(async move {
             let (mut connection, _) = listener.accept().await.unwrap();
+            let mut request = vec![0; 8192];
+            let _ = connection.read(&mut request).await.unwrap();
             connection
                 .write_all(
-                    b"HTTP/1.1 503 Service Unavailable\r\nContent-Length: 20\r\n\r\nupstream unavailable",
+                    b"HTTP/1.1 503 Service Unavailable\r\nContent-Length: 20\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nupstream unavailable",
                 )
                 .await
                 .unwrap();
@@ -852,13 +854,13 @@ mod tests {
 
         assert_eq!(error.code(), "UNAVAILABLE");
         assert!(matches!(
-            error,
+            &error,
             Error::Api {
                 status: Some(503),
                 message,
                 ..
             } if message.contains("upstream unavailable")
-        ));
+        ), "unexpected plain-text HTTP error: {error:?}");
     }
 
     #[tokio::test]

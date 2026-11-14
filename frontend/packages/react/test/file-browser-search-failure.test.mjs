@@ -39,7 +39,9 @@ test('a failed search shows the reason and a retry, not the empty copy', async (
     ),
   );
 
-  const trigger = tree.container.querySelector('.ov-file-browser__search-trigger');
+  const trigger = tree.container.querySelector(
+    '.ov-file-browser__search-trigger',
+  );
   assert.ok(trigger, 'the search entry must exist');
   await act(() => trigger.click());
   const input = document.querySelector('.ov-file-browser-search__input');

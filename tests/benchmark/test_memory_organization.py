@@ -31,6 +31,20 @@ from benchmark.memory_organization.run_autonomous_ab import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _use_default_openviking_config(monkeypatch):
+    from openviking_cli.utils.config.open_viking_config import OpenVikingConfig
+
+    monkeypatch.setattr(
+        "openviking_cli.utils.config.get_openviking_config",
+        lambda: OpenVikingConfig(),
+    )
+    monkeypatch.setattr(
+        "openviking.session.memory.session_extract_context_provider.get_openviking_config",
+        lambda: OpenVikingConfig(),
+    )
+
+
 def _case() -> OrganizationCase:
     return OrganizationCase.from_dict(
         {

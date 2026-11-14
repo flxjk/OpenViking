@@ -2,8 +2,9 @@ import os
 import uuid
 from urllib.parse import unquote, urlparse
 
-import psycopg2
 import pytest
+
+psycopg2 = pytest.importorskip("psycopg2")
 
 from openviking.storage.vectordb_adapters.opengauss_adapter import OpenGaussCollectionAdapter
 from openviking_cli.utils.config.vectordb_config import OpenGaussConfig

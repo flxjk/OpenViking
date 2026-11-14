@@ -1327,8 +1327,12 @@ mod tests {
     fn test_key_codec_encodes_only_target_characters() {
         let encoded = encode_path("a b/c?d/#frag/%raw", "?#%+@");
 
-        assert_eq!(encoded, "a!20b/c!3Fd/!23frag/!25raw");
+        assert_eq!(encoded, "a b/c!3Fd/!23frag/!25raw");
         assert_eq!(decode_path(&encoded, "?#%+@"), "a b/c?d/#frag/%raw");
+
+        let encoded_space = encode_path("a b", " ");
+        assert_eq!(encoded_space, "a!20b");
+        assert_eq!(decode_path(&encoded_space, " "), "a b");
     }
 
     #[test]
@@ -1351,7 +1355,7 @@ mod tests {
         let path = "dir//safe-_.*/@scope+pkg/客户看板 file/";
         let encoded = encode_path(path, "?#%+@");
 
-        assert_eq!(encoded, "dir//safe-_.*/!40scope!2Bpkg/客户看板!20file/");
+        assert_eq!(encoded, "dir//safe-_.*/!40scope!2Bpkg/客户看板 file/");
         assert_eq!(decode_path(&encoded, "?#%+@"), path);
     }
 
@@ -1366,7 +1370,7 @@ mod tests {
     #[test]
     fn test_build_key_applies_normalized_encoding_per_segment() {
         let key = test_client("ns", "?#%+@").build_key("/dir/a b/c?d.txt");
-        assert_eq!(key, "ns/dir/a!20b/c!3Fd.txt");
+        assert_eq!(key, "ns/dir/a b/c!3Fd.txt");
     }
 
     #[test]

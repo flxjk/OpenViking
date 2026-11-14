@@ -2757,9 +2757,15 @@ async def test_openviking_request_connection_client_is_closed_after_tool_call(mo
 
 @pytest.mark.asyncio
 async def test_experience_reminder_follows_direct_case_experience_links(monkeypatch, tmp_path):
+    from openviking_cli.utils.config import OpenVikingConfig
     from openviking.session.memory.dataclass import MemoryFile, StoredLink
     from openviking.session.memory.memory_type_registry import get_default_registry
     from openviking.session.memory.utils.memory_file_utils import MemoryFileUtils
+
+    monkeypatch.setattr(
+        "openviking_cli.utils.config.get_openviking_config",
+        lambda: OpenVikingConfig(),
+    )
 
     case_uri = "viking://user/admin/memories/cases/case1.md"
     exp_uri = "viking://user/admin/memories/experiences/exp 10%#(1).md"
