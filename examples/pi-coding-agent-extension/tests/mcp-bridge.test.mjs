@@ -97,13 +97,15 @@ for (const stage of ["initialize", "notifications/initialized", "tools/list"]) {
 
 test("tool budget includes connection time and never replays a timed out write", async (t) => {
   const { bridge, cfg, count } = await fixture(t, async (message) => {
-    if (message.method === "initialize") await delay(80);
-    if (message.method === "tools/call") await delay(300);
+    if (message.method === "initialize") await delay(650);
+    if (message.method === "tools/call") await delay(2000);
   });
-  cfg.timeoutMs = 180;
+  cfg.timeoutMs = 1000;
   const start = performance.now();
   await assert.rejects(bridge.callTool("echo", { value: 1 }));
-  assert.ok(performance.now() - start < 330);
+  // A timeout restarted after initialization would take at least 1650ms.
+  // Keep scheduling slack while still distinguishing the shared deadline.
+  assert.ok(performance.now() - start < 1500);
   assert.equal(count("tools/call"), 1);
 });
 

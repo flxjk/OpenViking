@@ -139,6 +139,20 @@ async def test_recall_capture_and_explicit_commit():
     assert client.commits == [session.state[provider.source_id]["session_id"]]
 
 
+def assert_stream_persistence_boundary(update, writes, evaluation_complete):
+    # MAF 1.26 finalizes its context providers after exhausting model/tool
+    # content, then emits one empty evaluation-metadata update. Hosts without
+    # that update use the same strict check for every yielded item: no persisted
+    # partial transcripts, and no content after terminal metadata.
+    terminal = not update.contents and "agent_framework.evaluation" in (
+        update.additional_properties or {}
+    )
+    assert not (evaluation_complete and update.contents), "content followed terminal metadata"
+    if not terminal:
+        assert not writes, "transcript persisted before streaming content completed"
+    return evaluation_complete or terminal
+
+
 @pytest.mark.parametrize("commit_policy", ["never", "always", "pending_tokens"])
 @pytest.mark.parametrize("stream", [False, True])
 @pytest.mark.parametrize("reuse_id", [False, True])
@@ -177,9 +191,12 @@ async def test_tools_keep_calls_and_results_paired(
             keep_last_tool_call_groups=0
         )
     if stream:
+        evaluation_complete = False
         async with agent.run("Read both labels", stream=True, **options) as result:
-            async for _ in result:
-                assert not client.commits
+            async for update in result:
+                evaluation_complete = assert_stream_persistence_boundary(
+                    update, client.rows or client.commits, evaluation_complete
+                )
     else:
         await agent.run("Read both labels", **options)
     parts = [part for row in client.rows for part in row["parts"] if part["type"] == "tool"]
@@ -352,9 +369,12 @@ async def test_stream_capture_requires_complete_consumption(complete, commit_pol
         commit_policy=commit_policy,
         commit_token_threshold=1,
     )
+    evaluation_complete = False
     async with agent.run("Question", session=session, stream=True) as stream:
-        async for _ in stream:
-            assert not client.commits
+        async for update in stream:
+            evaluation_complete = assert_stream_persistence_boundary(
+                update, client.rows or client.commits, evaluation_complete
+            )
             if not complete:
                 break
     assert len(client.rows) == (2 if complete else 0)
@@ -885,11 +905,14 @@ async def test_real_sdk_writes_tool_evidence_before_threshold_commit(monkeypatch
         agent = Agent(model, context_providers=[provider])
         session = agent.create_session()
         if stream:
+            evaluation_complete = False
             async with agent.run(
                 "Question", tools=[lookup_label], session=session, stream=True
             ) as result:
-                async for _ in result:
-                    assert not writes
+                async for update in result:
+                    evaluation_complete = assert_stream_persistence_boundary(
+                        update, writes, evaluation_complete
+                    )
         else:
             await agent.run("Question", tools=[lookup_label], session=session)
         assert writes == ["capture", "commit"]

@@ -87,11 +87,11 @@ describe("OpenClaw plugin package and install contract", () => {
     ]));
   });
 
-  it("strips dev dependencies before packing npm and ClawHub release artifacts", () => {
-    const workflow = readFileSync(
-      join(repoRoot, ".github/workflows/clawhub-dev-release.yml"),
-      "utf8",
-    );
+  // Forks may deliberately omit release workflows. Keep validating this CI
+  // contract whenever the release workflow is part of the checkout.
+  const releaseWorkflow = join(repoRoot, ".github/workflows/clawhub-dev-release.yml");
+  it.runIf(existsSync(releaseWorkflow))("release workflow strips dev dependencies before packing npm and ClawHub artifacts", () => {
+    const workflow = readFileSync(releaseWorkflow, "utf8");
 
     for (const stepName of [
       "Pack OpenViking plugin",

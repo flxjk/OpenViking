@@ -10,6 +10,7 @@ headers, and returns a payload matching its Pydantic model.
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 
 import httpx
 import pytest
@@ -42,6 +43,47 @@ def _assert_headers(request: httpx.Request) -> None:
     assert request.headers["x-openviking-account"] == "acct"
     assert request.headers["x-openviking-user"] == "alice"
     assert request.headers["x-openviking-actor-peer"] == "webui"
+
+
+@pytest.mark.parametrize(
+    "api_key,account,user,expected_status",
+    [
+        ("scoped-test-key", "acct", "alice", 200),
+        ("", "acct", "alice", 401),
+        ("wrong-test-key", "acct", "alice", 401),
+        ("scoped-test-key", "other-account", "alice", 403),
+    ],
+)
+@respx.mock
+async def test_search_preserves_scoped_core_auth(
+    api_key: str, account: str, user: str, expected_status: int
+) -> None:
+    """Tool readiness must include authenticated forwarding, not only /health."""
+
+    def protected_core(request: httpx.Request) -> httpx.Response:
+        if request.headers.get("authorization") != "Bearer scoped-test-key":
+            return httpx.Response(401, json={"error": "invalid key"})
+        tenant = (
+            request.headers.get("x-openviking-account"),
+            request.headers.get("x-openviking-user"),
+        )
+        if tenant != ("acct", "alice"):
+            return httpx.Response(403, json={"error": "tenant denied"})
+        return httpx.Response(200, json={"result": {"memories": [], "resources": []}})
+
+    route = respx.post("http://ov.test/api/v1/search/find").mock(side_effect=protected_core)
+    app = create_app(replace(SETTINGS, api_key=api_key, account=account, user=user))
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://test",
+        ) as tool_client:
+            response = await tool_client.post(
+                "/tools/ov_search", json={"query": "synthetic auth check"}
+            )
+    assert response.status_code == expected_status
+    assert route.called
+    assert route.calls.last.request.headers["x-openviking-actor-peer"] == "webui"
 
 
 @respx.mock

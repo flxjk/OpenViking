@@ -30,6 +30,8 @@ import { isCaptureEnabled } from "../../memory-plugin-shared/lib/capture-utils.m
 import { HOSTS } from "../hosts/index.mjs";
 import { withRequestBudget } from "./request-budget.mjs";
 
+const HOOK_FINISH_RESERVE_MS = 100;
+
 // ZCode's detached writer re-enters this file with no arguments at all, so what
 // the first run put in the environment is what tells the worker what it is.
 const event = process.argv[2] || process.env.OPENVIKING_HOOK_EVENT || "";
@@ -156,13 +158,20 @@ async function main() {
     if (!stageName) return "";
     const agent = makeAgentFetchJSON(cfg, cwd);
     const baseFetchJSON = agent.fetchJSON;
+    const requestBudgetMs = host.requestBudgets?.[event];
+    // The host measures the hook from process launch. Imports, configuration
+    // and stdin parsing have already spent part of that same wall-clock budget.
+    // Leave time to persist the result and close the hook after the final request.
+    const remainingBudgetMs = requestBudgetMs
+      ? Math.max(1, requestBudgetMs - process.uptime() * 1000 - HOOK_FINISH_RESERVE_MS)
+      : requestBudgetMs;
     const ctx = {
       cfg,
       cwd,
       input: payload,
       nativeSessionId: resolveNativeSessionId(payload),
       sessionId: deriveAgentSessionId(host.prefix, payload),
-      fetchJSON: withRequestBudget(baseFetchJSON, host.requestBudgets?.[event], cfg.timeoutMs),
+      fetchJSON: withRequestBudget(baseFetchJSON, remainingBudgetMs, cfg.timeoutMs),
       // The peer the actor-peer header already carries, stamped into captured
       // messages because session writes read it from the body only.
       get peerId() { return agent.effectivePeer.peerId; },
