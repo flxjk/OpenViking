@@ -1,5 +1,4 @@
 import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
 
 import type { HttpMethod } from "../generated/endpoints.js";
@@ -26,6 +25,7 @@ export interface RequestOptions {
   readonly path: string;
   readonly query?: Readonly<Record<string, unknown>> | undefined;
   readonly body?: unknown;
+  readonly rawBody?: string | Uint8Array;
   readonly headers?: Readonly<Record<string, string>> | undefined;
   readonly timeoutMs?: number | undefined;
   readonly retries?: number | undefined;
@@ -65,25 +65,85 @@ const backoffMs = (attempt: number): number => {
   return Math.round(base * (0.5 + Math.random() * 0.5));
 };
 
-const runOnce = (
-  client: HttpClient.HttpClient,
+export const makeRequest = (
   config: OpenVikingConfig,
   options: RequestOptions,
-): Effect.Effect<unknown, OpenVikingError> =>
+): Effect.Effect<HttpClientRequest.HttpClientRequest, OpenVikingError> =>
   Effect.gen(function* () {
     const url = buildUrl(config.baseUrl, options.path, options.query);
     const headers = { ...identityHeaders(config), ...options.headers };
-
-    let request = HttpClientRequest.make(options.method)(url);
+    // Fetch supports WebDAV verbs beyond Effect's standard method type union.
+    let request = HttpClientRequest.make(
+      options.method as Parameters<typeof HttpClientRequest.make>[0],
+    )(url);
     request = HttpClientRequest.setHeaders(request, headers);
-    if (options.body !== undefined) {
+    if (options.rawBody !== undefined) {
+      const contentType = headers["Content-Type"] ?? headers["content-type"];
+      request =
+        typeof options.rawBody === "string"
+          ? HttpClientRequest.bodyText(request, options.rawBody, contentType)
+          : HttpClientRequest.bodyUint8Array(
+              request,
+              options.rawBody,
+              contentType,
+            );
+    } else if (options.body !== undefined) {
       request = yield* HttpClientRequest.bodyJson(request, options.body).pipe(
         Effect.catch((cause) =>
           Effect.fail(new OpenVikingDecodeError({ path: options.path, cause })),
         ),
       );
     }
+    return request;
+  });
 
+const decodeResponse = (
+  response: HttpClientResponse.HttpClientResponse,
+  options: RequestOptions,
+): Effect.Effect<unknown, OpenVikingError> =>
+  Effect.gen(function* () {
+    if (
+      options.method === "HEAD" ||
+      response.status === 204 ||
+      response.status === 205
+    ) {
+      return undefined;
+    }
+    const contentType = (response.headers["content-type"] ?? "").toLowerCase();
+    const json = contentType.includes("/json") || contentType.includes("+json");
+    const text =
+      !contentType ||
+      json ||
+      contentType.startsWith("text/") ||
+      contentType.includes("xml");
+    const decodeError = (cause: unknown) =>
+      new OpenVikingDecodeError({ path: options.path, cause });
+    if (!text) {
+      const buffer = yield* response.arrayBuffer.pipe(
+        Effect.mapError(decodeError),
+      );
+      return new Uint8Array(buffer);
+    }
+    const body = yield* response.text.pipe(Effect.mapError(decodeError));
+    if (!body) return json || !contentType ? undefined : "";
+    if (!json) return body;
+    return yield* Effect.try({
+      try: () => JSON.parse(body) as unknown,
+      catch: decodeError,
+    }).pipe(
+      Effect.catch((error) =>
+        response.status >= 400 ? Effect.succeed(body) : Effect.fail(error),
+      ),
+    );
+  });
+
+const runOnce = (
+  client: HttpClient.HttpClient,
+  config: OpenVikingConfig,
+  options: RequestOptions,
+): Effect.Effect<unknown, OpenVikingError> =>
+  Effect.gen(function* () {
+    const request = yield* makeRequest(config, options);
     const response = yield* client.execute(request).pipe(
       Effect.catch((cause) =>
         Effect.fail(
@@ -95,15 +155,7 @@ const runOnce = (
         ),
       ),
     );
-
-    if (response.status === 204) return undefined;
-
-    const decoded = yield* HttpClientResponse.schemaBodyJson(Schema.Unknown)(response).pipe(
-      Effect.catch((cause) =>
-        Effect.fail(new OpenVikingDecodeError({ path: options.path, cause })),
-      ),
-    );
-
+    const decoded = yield* decodeResponse(response, options);
     if (response.status >= 400) {
       const requestId =
         isRecord(decoded) && typeof decoded["request_id"] === "string"
@@ -119,7 +171,6 @@ const runOnce = (
         }),
       );
     }
-
     return decoded;
   });
 
@@ -130,8 +181,11 @@ const withRetry = (
   const loop = (attempt: number): Effect.Effect<unknown, OpenVikingError> =>
     effect.pipe(
       Effect.catch((error) => {
-        if (attempt >= retries || !isRetryable(error)) return Effect.fail(error);
-        return Effect.sleep(backoffMs(attempt)).pipe(Effect.andThen(loop(attempt + 1)));
+        if (attempt >= retries || !isRetryable(error))
+          return Effect.fail(error);
+        return Effect.sleep(backoffMs(attempt)).pipe(
+          Effect.andThen(loop(attempt + 1)),
+        );
       }),
     );
   return loop(0);

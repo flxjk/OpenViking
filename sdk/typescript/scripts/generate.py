@@ -28,7 +28,7 @@ HERE = Path(__file__).resolve().parent
 SDK = HERE.parent
 OUT = SDK / "src" / "generated"
 
-HTTP_METHODS = ("get", "post", "put", "patch", "delete")
+HTTP_METHODS = ("get", "head", "post", "put", "patch", "delete", "options", "propfind", "mkcol", "move")
 
 RESERVED = {
     "break", "case", "catch", "class", "const", "continue", "debugger", "default",
@@ -220,17 +220,49 @@ def operation_types(op: dict) -> tuple[str, str, str, str]:
 
 def emit_endpoints(spec: dict) -> str:
     rows: list[dict] = []
-    for path, item in spec.get("paths", {}).items():
+    used_keys: set[str] = set()
+    for path, item in sorted(spec.get("paths", {}).items()):
+        unsupported = [
+            method for method, operation in item.items()
+            if isinstance(operation, dict) and "responses" in operation
+            and method not in HTTP_METHODS
+        ]
+        if unsupported:
+            raise ValueError(f"Unsupported advertised HTTP methods for {path}: {unsupported}")
         for method in HTTP_METHODS:
             op = item.get(method)
             if not op:
                 continue
             operation_id = op.get("operationId") or f"{method}_{path}"
+            # FastAPI assigns one nondeterministic ID to its combined GET/HEAD route.
+            # Keep GET names stable and give HEAD its own deterministic callable alias.
+            if method in ("get", "head") and operation_id.startswith("get_or_head_"):
+                operation_id = re.sub(r"_(?:get|head)$", f"_{method}", operation_id)
+            key = camel(operation_id)
+            if key in used_keys:
+                operation_id = f"{operation_id}_{method}"
+                key = camel(operation_id)
+            if key in used_keys:
+                raise ValueError(f"Duplicate endpoint key {key}: {method.upper()} {path}")
+            used_keys.add(key)
             tags = op.get("tags") or ["default"]
             body, query, path_t, response = operation_types(op)
+            raw_body = path.startswith("/webdav/resources") and method == "put"
+            if raw_body:
+                body = "string | Uint8Array"
+            if method == "head" or (
+                path.startswith("/webdav/resources")
+                and method in ("options", "put", "delete", "mkcol", "move")
+            ):
+                response = "void"
+            elif path.startswith("/webdav/resources") and method == "propfind":
+                response = "string"
+            elif path.startswith("/webdav/resources") and method == "get":
+                response = "string | Uint8Array"
             rows.append(
                 {
-                    "key": camel(operation_id),
+                    "key": key,
+                    "requestEncoding": "raw" if raw_body else "json",
                     "operationId": operation_id,
                     "method": method.upper(),
                     "url": path,
@@ -268,7 +300,7 @@ def emit_endpoints(spec: dict) -> str:
         "",
         import_line,
         "",
-        'export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";',
+        'export type HttpMethod = ' + ' | '.join(json.dumps(method.upper()) for method in HTTP_METHODS) + ';',
         "",
         "export interface EndpointDescriptor {",
         "  readonly operationId: string;",
@@ -276,6 +308,7 @@ def emit_endpoints(spec: dict) -> str:
         "  readonly path: string;",
         "  readonly tag: string;",
         "  readonly summary: string;",
+        '  readonly requestEncoding?: "json" | "raw";',
         "}",
         "",
         "export const endpoints = {",
@@ -283,7 +316,7 @@ def emit_endpoints(spec: dict) -> str:
     for row in rows:
         lines.append(
             f'  {row["key"]}: {{ operationId: "{row["operationId"]}", method: "{row["method"]}", '
-            f'path: "{row["url"]}", tag: "{row["tag"]}", summary: "{row["summary"]}" }},'
+            f'path: "{row["url"]}", tag: "{row["tag"]}", summary: "{row["summary"]}", requestEncoding: "{row["requestEncoding"]}" }},'
         )
     lines.append("} as const satisfies Record<string, EndpointDescriptor>;")
     lines.append("")
@@ -302,7 +335,9 @@ def emit_endpoints(spec: dict) -> str:
     lines.append("export type EndpointPath<K extends EndpointKey> = EndpointTypes[K][\"path\"];")
     lines.append("")
     lines.append("export type EndpointResponse<K extends EndpointKey> =")
-    lines.append("  K extends keyof ResponseTypes")
+    lines.append('  (typeof endpoints)[K]["tag"] extends "webdav"')
+    lines.append('    ? EndpointTypes[K]["response"]')
+    lines.append("    : K extends keyof ResponseTypes")
     lines.append("    ? ResponseTypes[K]")
     lines.append("    : K extends keyof MutationResponseTypes")
     lines.append("      ? MutationResponseTypes[K]")

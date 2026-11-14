@@ -5,7 +5,7 @@ TypeScript SDK for OpenViking. Two entry points share one package:
 | Entry point | Style | Use it when |
 |---|---|---|
 | `OpenViking` / `Domains` / `Feedback` | Effect 4.1 | you want typed errors, retries, streaming, concurrency and the self-improving retrieval loop |
-| `OpenVikingClient` | plain `async`/`await` | you want a dependency-free client with no Effect runtime |
+| `OpenVikingClient` | plain `async`/`await` | you prefer Promise-based calls without writing Effect programs |
 
 Both speak the same HTTP API, identity headers, response envelope and error codes as the Python and Go SDKs.
 
@@ -15,7 +15,7 @@ npm install @openviking/sdk effect
 
 ## Effect SDK
 
-The generated surface covers **every operation the server exposes** — 194 operations across 27 routers, regenerated from the live OpenAPI spec. Every operation is reachable through a domain method — [coverage.test.ts](tests/coverage.spec.ts) fails the build if one is missing. Response types are inferred from live responses for 63 operations — 38 read-only ones against the configured server, and 31 mutating ones against a throwaway sandbox. The rest stay `unknown` rather than guessed.
+The generated surface contains **all 205 advertised HTTP operations** across 27 routers, regenerated from the live OpenAPI spec. Every operation is reachable through a domain method — [coverage.spec.ts](tests/coverage.spec.ts) fails the test suite if one is missing. Response types are inferred from live responses for 63 operations — 38 read-only ones against the configured server, and 31 mutating ones against a throwaway sandbox. The rest stay `unknown` rather than guessed.
 
 ```ts
 import { Effect } from "effect";
@@ -65,6 +65,25 @@ const task = yield* ov.call("getTaskApiV1TasksTaskIdGet", {
 ```
 
 `endpoints` is the catalog: `{ operationId, method, path, tag, summary }` per key. `EndpointTypes` binds each key to its `body`, `query`, `path` and `response`.
+
+### WebDAV
+
+The Effect `webdav` domain supports GET, HEAD, OPTIONS, PROPFIND, PUT, DELETE,
+MKCOL and MOVE through query and path routes. GET returns text or a `Uint8Array`
+according to the content type; PROPFIND returns XML text. HEAD and successful
+empty responses return `undefined`, while HTTP errors remain typed errors.
+PUT accepts raw text or bytes rather than JSON-wrapping file contents:
+
+```ts
+yield* domains.webdav.putPath("notes/example.md", "# Example\n");
+yield* domains.webdav.headPath("notes/example.md");
+const content = yield* domains.webdav.getPath("notes/example.md");
+yield* domains.webdav.movePath("notes/example.md", "/webdav/resources/notes/moved.md");
+```
+
+Shared server GET/HEAD operation IDs receive stable method-specific generated
+names; existing GET names are preserved. `ov.raw` also accepts `rawBody` for
+custom text or binary HTTP requests.
 
 ### Streaming
 
@@ -255,9 +274,11 @@ npm install
 npm run typecheck
 npm test
 npm run build
+# Compare the catalog to a current server OpenAPI export:
+OV_OPENAPI_SPEC=/tmp/ov-openapi.json npm test -- tests/coverage.spec.ts
 ```
 
-Tests that need a server skip themselves when `http://127.0.0.1:1933/health` is unreachable. Point them elsewhere with `OV_URL`.
+Server-backed tests are reported as skipped unless you explicitly set `OV_URL`. For example, `OV_URL=http://127.0.0.1:1933 npm test` enables live requests, including semantic retrieval that may use the configured embedding provider. A configured but unreachable server fails the checks.
 
 The lifecycle suite needs a disposable server and drives real mutations
 (mkdir, write, read, cp, mv, rm, session create/append/commit/delete):
@@ -266,5 +287,4 @@ The lifecycle suite needs a disposable server and drives real mutations
 just sdk-test-sandbox     # starts the sandbox, runs everything, tears it down
 ```
 
-Point it elsewhere with `OV_SANDBOX_URL`. It refuses to run against a server
-whose `auth_mode` is not `dev`, so it cannot touch a live workspace.
+The mutation suites are reported as skipped unless `OV_SANDBOX_URL` is set; the `just` command sets it for you. Use only a disposable workspace: the tests reject non-`dev` auth mode, but `dev` auth alone does not prove that a workspace is disposable. A configured but unreachable or rejected sandbox fails the checks.

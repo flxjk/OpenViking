@@ -9,14 +9,14 @@ import { Feedback, layer as feedbackLayer } from "../src/effect/self-improve.js"
 const BASE_URL = process.env["OV_URL"] ?? "http://127.0.0.1:1933";
 
 const reachable = async (): Promise<boolean> => {
-  try {
-    const response = await fetch(`${BASE_URL}/health`, {
-      signal: AbortSignal.timeout(2_000),
-    });
-    return response.ok;
-  } catch {
-    return false;
+  if (!process.env["OV_URL"]) return false;
+  const response = await fetch(`${BASE_URL}/health`, {
+    signal: AbortSignal.timeout(2_000),
+  });
+  if (!response.ok) {
+    throw new Error(`Configured OV_URL health returned HTTP ${response.status}`);
   }
+  return true;
 };
 
 const base = openVikingLayer({ baseUrl: BASE_URL });
@@ -28,8 +28,8 @@ const run = <A, E>(effect: Effect.Effect<A, E, OpenViking | Domains | Feedback>)
   Effect.runPromise(Effect.provide(effect, stack));
 
 describe("domains", () => {
-  it("reads health", async () => {
-    if (!(await reachable())) return;
+  it("reads health", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const health = await run(
       Effect.gen(function* () {
         const domains = yield* Domains;
@@ -40,8 +40,8 @@ describe("domains", () => {
     expect(typeof health.version).toBe("string");
   });
 
-  it("reads system status", async () => {
-    if (!(await reachable())) return;
+  it("reads system status", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const status = await run(
       Effect.gen(function* () {
         const domains = yield* Domains;
@@ -51,8 +51,8 @@ describe("domains", () => {
     expect(status.initialized).toBe(true);
   });
 
-  it("lists the memory root", async () => {
-    if (!(await reachable())) return;
+  it("lists the memory root", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const entries = await run(
       Effect.gen(function* () {
         const domains = yield* Domains;
@@ -64,8 +64,8 @@ describe("domains", () => {
     expect(entries[0]?.uri.startsWith("viking://")).toBe(true);
   });
 
-  it("lists skills", async () => {
-    if (!(await reachable())) return;
+  it("lists skills", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const skills = await run(
       Effect.gen(function* () {
         const domains = yield* Domains;
@@ -75,8 +75,8 @@ describe("domains", () => {
     expect(Array.isArray(skills.skills)).toBe(true);
   });
 
-  it("lists sessions", async () => {
-    if (!(await reachable())) return;
+  it("lists sessions", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const sessions = await run(
       Effect.gen(function* () {
         const domains = yield* Domains;
@@ -86,8 +86,8 @@ describe("domains", () => {
     expect(Array.isArray(sessions)).toBe(true);
   });
 
-  it("runs a semantic find", async () => {
-    if (!(await reachable())) return;
+  it("runs a semantic find", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const result = await run(
       Effect.gen(function* () {
         const domains = yield* Domains;
@@ -114,8 +114,8 @@ describe("self-improving retrieval", () => {
     expect(policy.limit).toBeGreaterThan(0);
   });
 
-  it("adapts after a used result", async () => {
-    if (!(await reachable())) return;
+  it("adapts after a used result", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const outcome = await run(
       Effect.gen(function* () {
         const feedback = yield* Feedback;

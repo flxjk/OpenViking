@@ -9,14 +9,14 @@ import { Domains, layer as domainsLayer, type DomainsShape } from "../src/effect
 const BASE_URL = process.env["OV_URL"] ?? "http://127.0.0.1:1933";
 
 const reachable = async (): Promise<boolean> => {
-  try {
-    const response = await fetch(`${BASE_URL}/health`, {
-      signal: AbortSignal.timeout(2_000),
-    });
-    return response.ok;
-  } catch {
-    return false;
+  if (!process.env["OV_URL"]) return false;
+  const response = await fetch(`${BASE_URL}/health`, {
+    signal: AbortSignal.timeout(2_000),
+  });
+  if (!response.ok) {
+    throw new Error(`Configured OV_URL health returned HTTP ${response.status}`);
   }
+  return true;
 };
 
 interface FakeEntry {
@@ -79,8 +79,8 @@ const run = <A, E>(effect: Effect.Effect<A, E, OpenViking | Domains>) =>
   Effect.runPromise(Effect.provide(effect, stack));
 
 describe("context assembly live", () => {
-  it("assembles a recall block", async () => {
-    if (!(await reachable())) return;
+  it("assembles a recall block", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const block = await run(
       Effect.gen(function* () {
         const domains = yield* Domains;

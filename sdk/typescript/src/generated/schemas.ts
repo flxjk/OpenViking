@@ -122,6 +122,14 @@ export type BatchMountMCPToolsRequest = {
   wait?: boolean;
 };
 
+export type BatchSetTagsRequest = {
+  uris: string[];
+  tags?: string[] | null;
+  mode?: string;
+  recursive?: boolean;
+  telemetry?: boolean | Record<string, boolean>;
+};
+
 export type BatchUnmountMCPToolsRequest = {
   node_uris: string[];
   wait?: boolean;

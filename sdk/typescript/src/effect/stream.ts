@@ -1,15 +1,14 @@
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
-import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
+import { HttpClient, HttpClientResponse } from "effect/http";
 
 import { identityHeaders, type OpenVikingConfig } from "./config.js";
 import {
-  OpenVikingDecodeError,
   OpenVikingHttpError,
   OpenVikingTransportError,
   type OpenVikingError,
 } from "./errors.js";
-import { buildUrl, type RequestOptions } from "./http.js";
+import { makeRequest, type RequestOptions } from "./http.js";
 
 export interface ServerSentEvent {
   readonly event: string;
@@ -73,24 +72,19 @@ const openStream = (
   client: HttpClient.HttpClient,
   config: OpenVikingConfig,
   options: RequestOptions,
-): Effect.Effect<Stream.Stream<ServerSentEvent, OpenVikingError>, OpenVikingError> =>
+): Effect.Effect<
+  Stream.Stream<ServerSentEvent, OpenVikingError>,
+  OpenVikingError
+> =>
   Effect.gen(function* () {
-    const url = buildUrl(config.baseUrl, options.path, options.query);
-    const headers = {
-      accept: "text/event-stream",
-      ...identityHeaders(config),
-      ...options.headers,
-    };
-
-    let request = HttpClientRequest.make(options.method)(url);
-    request = HttpClientRequest.setHeaders(request, headers);
-    if (options.body !== undefined) {
-      request = yield* HttpClientRequest.bodyJson(request, options.body).pipe(
-        Effect.catch((cause) =>
-          Effect.fail(new OpenVikingDecodeError({ path: options.path, cause })),
-        ),
-      );
-    }
+    const request = yield* makeRequest(config, {
+      ...options,
+      headers: {
+        accept: "text/event-stream",
+        ...identityHeaders(config),
+        ...options.headers,
+      },
+    });
 
     const response = yield* client.execute(request).pipe(
       Effect.catch((cause) =>
@@ -115,31 +109,32 @@ const openStream = (
       );
     }
 
-    const decoded: Stream.Stream<ServerSentEvent, OpenVikingError> = response.stream.pipe(
-      Stream.decodeText(),
-      Stream.mapError(
-        (cause) =>
-          new OpenVikingTransportError({
-            method: options.method,
-            path: options.path,
-            cause,
-          }),
-      ),
-      Stream.mapAccum(
-        () => "",
-        (buffer: string, chunk: string) => {
-          const combined = buffer + chunk;
-          const blocks = combined.split(/\r?\n\r?\n/);
-          const rest = blocks.pop() ?? "";
-          const events: ServerSentEvent[] = [];
-          for (const block of blocks) {
-            const parsed = parseSseBlock(block);
-            if (parsed) events.push(parsed);
-          }
-          return [rest, events] as const;
-        },
-      ),
-    );
+    const decoded: Stream.Stream<ServerSentEvent, OpenVikingError> =
+      response.stream.pipe(
+        Stream.decodeText(),
+        Stream.mapError(
+          (cause) =>
+            new OpenVikingTransportError({
+              method: options.method,
+              path: options.path,
+              cause,
+            }),
+        ),
+        Stream.mapAccum(
+          () => "",
+          (buffer: string, chunk: string) => {
+            const combined = buffer + chunk;
+            const blocks = combined.split(/\r?\n\r?\n/);
+            const rest = blocks.pop() ?? "";
+            const events: ServerSentEvent[] = [];
+            for (const block of blocks) {
+              const parsed = parseSseBlock(block);
+              if (parsed) events.push(parsed);
+            }
+            return [rest, events] as const;
+          },
+        ),
+      );
 
     return decoded;
   });
@@ -167,6 +162,7 @@ export const responseStream = (
   response.stream.pipe(
     Stream.decodeText(),
     Stream.mapError(
-      (cause) => new OpenVikingTransportError({ method: "GET", path: "", cause }),
+      (cause) =>
+        new OpenVikingTransportError({ method: "GET", path: "", cause }),
     ),
   );

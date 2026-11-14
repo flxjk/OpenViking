@@ -8,14 +8,14 @@ import { Domains, layer as domainsLayer } from "../src/effect/domains.js";
 const BASE_URL = process.env["OV_URL"] ?? "http://127.0.0.1:1933";
 
 const reachable = async (): Promise<boolean> => {
-  try {
-    const response = await fetch(`${BASE_URL}/health`, {
-      signal: AbortSignal.timeout(2_000),
-    });
-    return response.ok;
-  } catch {
-    return false;
+  if (!process.env["OV_URL"]) return false;
+  const response = await fetch(`${BASE_URL}/health`, {
+    signal: AbortSignal.timeout(2_000),
+  });
+  if (!response.ok) {
+    throw new Error(`Configured OV_URL health returned HTTP ${response.status}`);
   }
+  return true;
 };
 
 const stack = domainsLayer.pipe(Layer.provide(openVikingLayer({ baseUrl: BASE_URL })));
@@ -48,8 +48,8 @@ const expectTyped = <A>(outcome: Outcome<A>): A | undefined => {
 };
 
 describe("observer", () => {
-  it("reads every observer snapshot", async () => {
-    if (!(await reachable())) return;
+  it("reads every observer snapshot", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const outcome = await settles(
       withDomains((domains) =>
         Effect.all({
@@ -72,16 +72,16 @@ describe("observer", () => {
 });
 
 describe("console", () => {
-  it("reads the dashboard summary", async () => {
-    if (!(await reachable())) return;
+  it("reads the dashboard summary", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const summary = expectTyped(await settles(withDomains((domains) => domains.console.summary())));
     if (summary) expect(summary).toBeTruthy();
   });
 });
 
 describe("tasks", () => {
-  it("lists tasks", async () => {
-    if (!(await reachable())) return;
+  it("lists tasks", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const tasks = expectTyped(
       await settles(withDomains((domains) => domains.tasks.list({ limit: 5 }))),
     );
@@ -90,16 +90,16 @@ describe("tasks", () => {
 });
 
 describe("stats", () => {
-  it("reads memory stats", async () => {
-    if (!(await reachable())) return;
+  it("reads memory stats", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const stats = expectTyped(await settles(withDomains((domains) => domains.stats.memories())));
     if (stats) expect(stats).toBeTruthy();
   });
 });
 
 describe("watches", () => {
-  it("lists watches", async () => {
-    if (!(await reachable())) return;
+  it("lists watches", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const watches = expectTyped(
       await settles(withDomains((domains) => domains.watches.list({ limit: 5 }))),
     );
@@ -111,8 +111,8 @@ describe("watches", () => {
 });
 
 describe("privacy", () => {
-  it("lists privacy categories and the tree", async () => {
-    if (!(await reachable())) return;
+  it("lists privacy categories and the tree", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const result = expectTyped(
       await settles(
         withDomains((domains) =>
@@ -130,8 +130,8 @@ describe("privacy", () => {
 });
 
 describe("acl", () => {
-  it("reads the acl of the memory root", async () => {
-    if (!(await reachable())) return;
+  it("reads the acl of the memory root", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const acl = expectTyped(
       await settles(
         withDomains((domains) => domains.acl.get({ uri: "viking://user/default/memories" })),
@@ -142,8 +142,8 @@ describe("acl", () => {
 });
 
 describe("compile", () => {
-  it("reads capabilities, config and operations", async () => {
-    if (!(await reachable())) return;
+  it("reads capabilities, config and operations", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const result = expectTyped(
       await settles(
         withDomains((domains) =>
@@ -163,16 +163,16 @@ describe("compile", () => {
 });
 
 describe("mcps", () => {
-  it("lists registered mcp servers", async () => {
-    if (!(await reachable())) return;
+  it("lists registered mcp servers", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const mcps = expectTyped(await settles(withDomains((domains) => domains.mcps.list())));
     if (mcps) expect(mcps).toBeTruthy();
   });
 });
 
 describe("admin", () => {
-  it("lists accounts and cluster configuration", async () => {
-    if (!(await reachable())) return;
+  it("lists accounts and cluster configuration", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const result = expectTyped(
       await settles(
         withDomains((domains) =>
@@ -190,8 +190,8 @@ describe("admin", () => {
 });
 
 describe("snapshot", () => {
-  it("reads the snapshot log", async () => {
-    if (!(await reachable())) return;
+  it("reads the snapshot log", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const log = expectTyped(
       await settles(withDomains((domains) => domains.snapshot.log({ limit: 5 }))),
     );
@@ -200,8 +200,8 @@ describe("snapshot", () => {
 });
 
 describe("rules", () => {
-  it("searches rules for a task context", async () => {
-    if (!(await reachable())) return;
+  it("searches rules for a task context", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const result = expectTyped(
       await settles(withDomains((domains) => domains.rules.search({ task_context: "telemetry" }))),
     );
@@ -210,8 +210,8 @@ describe("rules", () => {
 });
 
 describe("bot", () => {
-  it("reports bot health", async () => {
-    if (!(await reachable())) return;
+  it("reports bot health", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const health = expectTyped(await settles(withDomains((domains) => domains.bot.health())));
     if (health) expect(health).toBeTruthy();
   });

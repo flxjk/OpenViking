@@ -131,3 +131,11 @@ await client.importOVPack(packPath, "viking://resources", {
 ## 发布
 
 推送 `typescript-sdk@0.1.0` 格式的 tag 会自动发布对应版本，也可以从 GitHub Actions 手动触发同一 workflow。首次发布使用具备 `@openviking` scope 权限的仓库 `NPM_TOKEN`；包创建后，需要在 npm 为仓库 `volcengine/OpenViking` 和 workflow `typescript-sdk-release.yml` 配置 Trusted Publisher，后续发布即可像 `@openviking/cli` 一样使用 OIDC。
+
+## 本地验证
+
+`npm test` 默认将依赖服务的用例标记为跳过。显式设置 `OV_URL` 后才会向服务发起请求，例如 `OV_URL=http://127.0.0.1:1933 npm test`；语义检索可能调用配置的 Embedding 服务。指定的服务不可达时，用例会失败。
+
+修改数据的用例需要显式设置 `OV_SANDBOX_URL`。`just sdk-test-sandbox` 会启动临时服务并设置该变量。请只使用可丢弃的工作区：用例会拒绝非 `dev` 鉴权模式，但 `dev` 模式不能证明工作区中没有真实数据。指定的临时服务不可达或鉴权模式不符时，用例会失败。
+
+Effect SDK 的 `webdav` 域支持查询参数和路径两种形式的 GET、HEAD、OPTIONS、PROPFIND、PUT、DELETE、MKCOL 与 MOVE。GET 按 Content-Type 返回文本或 `Uint8Array`，PROPFIND 返回 XML 文本；HEAD 与空成功响应返回 `undefined`，HTTP 错误保留为类型化错误。PUT 的参数是原始文本或字节，不会将文件内容包装为 JSON。`ov.raw` 也可通过 `rawBody` 发送原始请求体。

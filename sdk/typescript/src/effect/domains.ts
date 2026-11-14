@@ -38,13 +38,14 @@ type Call = <K extends EndpointKey>(
     path?: never;
     query?: EndpointQuery<K>;
     body?: EndpointBody<K>;
+    headers?: Readonly<Record<string, string>> | undefined;
   },
 ) => Effect.Effect<unknown, OpenVikingError>;
 
 type CallPath = <K extends EndpointKey>(
   key: K,
   path: Record<string, string>,
-  args?: { query?: EndpointQuery<K>; body?: EndpointBody<K> },
+  args?: { query?: EndpointQuery<K>; body?: EndpointBody<K>; headers?: Readonly<Record<string, string>> | undefined },
 ) => Effect.Effect<unknown, OpenVikingError>;
 
 export interface SearchDomain {
@@ -66,6 +67,7 @@ export interface ContentDomain {
   readonly batchWrite: (body: EndpointBody<"batchWriteApiV1ContentBatchWritePost">) => Effect.Effect<unknown, OpenVikingError>;
   readonly reindex: (body: EndpointBody<"reindexApiV1ContentReindexPost">) => Effect.Effect<unknown, OpenVikingError>;
   readonly setTags: (body: EndpointBody<"setTagsApiV1ContentSetTagsPost">) => Effect.Effect<unknown, OpenVikingError>;
+  readonly batchSetTags: (body: EndpointBody<"batchSetTagsApiV1ContentBatchSetTagsPost">) => Effect.Effect<unknown, OpenVikingError>;
 }
 
 export interface FsDomain {
@@ -332,12 +334,22 @@ export interface UserSettingsDomain {
 }
 
 export interface WebdavDomain {
-  readonly get: (query: EndpointQuery<"getOrHeadWebdavResourcesGet">) => Effect.Effect<unknown, OpenVikingError>;
-  readonly put: (body: EndpointBody<"putWebdavResourcesPut">) => Effect.Effect<unknown, OpenVikingError>;
-  readonly remove: (query: EndpointQuery<"deleteWebdavResourcesDelete">) => Effect.Effect<unknown, OpenVikingError>;
-  readonly getPath: (resourcePath: string, query: EndpointQuery<"getOrHeadWebdavResourcesResourcePathGet">) => Effect.Effect<unknown, OpenVikingError>;
-  readonly putPath: (resourcePath: string, body: EndpointBody<"putWebdavResourcesResourcePathPut">) => Effect.Effect<unknown, OpenVikingError>;
-  readonly removePath: (resourcePath: string, query: EndpointQuery<"deleteWebdavResourcesResourcePathDelete">) => Effect.Effect<unknown, OpenVikingError>;
+  readonly get: (query: EndpointQuery<"getOrHeadWebdavResourcesGet">) => Effect.Effect<string | Uint8Array, OpenVikingError>;
+  readonly head: (query?: EndpointQuery<"getOrHeadWebdavResourcesHead">) => Effect.Effect<void, OpenVikingError>;
+  readonly options: (query?: EndpointQuery<"optionsWebdavResourcesOptions">) => Effect.Effect<void, OpenVikingError>;
+  readonly propfind: (query: EndpointQuery<"propfindWebdavResourcesPropfind">, headers?: Readonly<Record<string, string>>) => Effect.Effect<string, OpenVikingError>;
+  readonly put: (query: EndpointQuery<"putWebdavResourcesPut">, body: string | Uint8Array, headers?: Readonly<Record<string, string>>) => Effect.Effect<void, OpenVikingError>;
+  readonly remove: (query: EndpointQuery<"deleteWebdavResourcesDelete">) => Effect.Effect<void, OpenVikingError>;
+  readonly mkcol: (query: EndpointQuery<"mkcolWebdavResourcesMkcol">) => Effect.Effect<void, OpenVikingError>;
+  readonly move: (query: EndpointQuery<"moveWebdavResourcesMove">, destination: string, overwrite?: boolean) => Effect.Effect<void, OpenVikingError>;
+  readonly getPath: (resourcePath: string) => Effect.Effect<string | Uint8Array, OpenVikingError>;
+  readonly headPath: (resourcePath: string) => Effect.Effect<void, OpenVikingError>;
+  readonly optionsPath: (resourcePath: string) => Effect.Effect<void, OpenVikingError>;
+  readonly propfindPath: (resourcePath: string, headers?: Readonly<Record<string, string>>) => Effect.Effect<string, OpenVikingError>;
+  readonly putPath: (resourcePath: string, body: string | Uint8Array, headers?: Readonly<Record<string, string>>) => Effect.Effect<void, OpenVikingError>;
+  readonly removePath: (resourcePath: string) => Effect.Effect<void, OpenVikingError>;
+  readonly mkcolPath: (resourcePath: string) => Effect.Effect<void, OpenVikingError>;
+  readonly movePath: (resourcePath: string, destination: string, overwrite?: boolean) => Effect.Effect<void, OpenVikingError>;
 }
 
 export interface DebugDomain {
@@ -413,6 +425,7 @@ export const makeDomains = (ov: OpenVikingShape): DomainsShape => {
       batchWrite: (body) => call("batchWriteApiV1ContentBatchWritePost", { body }),
       reindex: (body) => call("reindexApiV1ContentReindexPost", { body }),
       setTags: (body) => call("setTagsApiV1ContentSetTagsPost", { body }),
+      batchSetTags: (body) => call("batchSetTagsApiV1ContentBatchSetTagsPost", { body }),
       download: (query) => call("downloadApiV1ContentDownloadGet", { query }),
       ensureDirectoryIndex: (body) => call("ensureDirectoryIndexApiV1ContentEnsureDirectoryIndexPost", { body }),
     },
@@ -666,15 +679,25 @@ export const makeDomains = (ov: OpenVikingShape): DomainsShape => {
       removeAddLocations: () => call("deleteAddLocationsApiV1UserSettingsAddLocationsDelete"),
     },
     webdav: {
-      get: (query) => call("getOrHeadWebdavResourcesGet", { query }),
-      put: (body) => call("putWebdavResourcesPut", { body }),
-      remove: (query) => call("deleteWebdavResourcesDelete", { query }),
-      getPath: (resourcePath, query) =>
-        callPath("getOrHeadWebdavResourcesResourcePathGet", { resource_path: resourcePath }, { query }),
-      putPath: (resourcePath, body) =>
-        callPath("putWebdavResourcesResourcePathPut", { resource_path: resourcePath }, { body }),
-      removePath: (resourcePath, query) =>
-        callPath("deleteWebdavResourcesResourcePathDelete", { resource_path: resourcePath }, { query }),
+      get: (query) => call("getOrHeadWebdavResourcesGet", { query }) as Effect.Effect<string | Uint8Array, OpenVikingError>,
+      head: (query = {}) => call("getOrHeadWebdavResourcesHead", { query }).pipe(Effect.asVoid),
+      options: (query = {}) => call("optionsWebdavResourcesOptions", { query }).pipe(Effect.asVoid),
+      propfind: (query, headers) => call("propfindWebdavResourcesPropfind", { query, headers }) as Effect.Effect<string, OpenVikingError>,
+      put: (query, body, headers) => call("putWebdavResourcesPut", { query, body, headers }).pipe(Effect.asVoid),
+      remove: (query) => call("deleteWebdavResourcesDelete", { query }).pipe(Effect.asVoid),
+      mkcol: (query) => call("mkcolWebdavResourcesMkcol", { query }).pipe(Effect.asVoid),
+      move: (query, destination, overwrite = true) => call("moveWebdavResourcesMove", { query, headers: { Destination: destination, Overwrite: overwrite ? "T" : "F" } }).pipe(Effect.asVoid),
+      getPath: (resourcePath) =>
+        callPath("getOrHeadWebdavResourcesResourcePathGet", { resource_path: resourcePath }) as Effect.Effect<string | Uint8Array, OpenVikingError>,
+      headPath: (resourcePath) => callPath("getOrHeadWebdavResourcesResourcePathHead", { resource_path: resourcePath }).pipe(Effect.asVoid),
+      optionsPath: (resourcePath) => callPath("optionsWebdavResourcesResourcePathOptions", { resource_path: resourcePath }).pipe(Effect.asVoid),
+      propfindPath: (resourcePath, headers) => callPath("propfindWebdavResourcesResourcePathPropfind", { resource_path: resourcePath }, { headers }) as Effect.Effect<string, OpenVikingError>,
+      putPath: (resourcePath, body, headers) =>
+        callPath("putWebdavResourcesResourcePathPut", { resource_path: resourcePath }, { body, headers }).pipe(Effect.asVoid),
+      removePath: (resourcePath) =>
+        callPath("deleteWebdavResourcesResourcePathDelete", { resource_path: resourcePath }).pipe(Effect.asVoid),
+      mkcolPath: (resourcePath) => callPath("mkcolWebdavResourcesResourcePathMkcol", { resource_path: resourcePath }).pipe(Effect.asVoid),
+      movePath: (resourcePath, destination, overwrite = true) => callPath("moveWebdavResourcesResourcePathMove", { resource_path: resourcePath }, { headers: { Destination: destination, Overwrite: overwrite ? "T" : "F" } }).pipe(Effect.asVoid),
     },
     debug: {
       health: () => call("debugHealthApiV1DebugHealthGet"),

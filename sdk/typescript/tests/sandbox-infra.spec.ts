@@ -10,18 +10,18 @@ const SANDBOX_URL = process.env["OV_SANDBOX_URL"] ?? "http://127.0.0.1:1944";
 let available = false;
 
 beforeAll(async () => {
-  try {
-    const response = await fetch(`${SANDBOX_URL}/health`, {
-      signal: AbortSignal.timeout(2_000),
-    });
-    const body = (await response.json()) as { auth_mode?: string };
-    available = response.ok;
-    if (body.auth_mode !== "dev") {
-      available = false;
-    }
-  } catch {
-    available = false;
+  if (!process.env["OV_SANDBOX_URL"]) return;
+  const response = await fetch(`${SANDBOX_URL}/health`, {
+    signal: AbortSignal.timeout(2_000),
+  });
+  if (!response.ok) {
+    throw new Error(`Configured OV_SANDBOX_URL health returned HTTP ${response.status}`);
   }
+  const body = (await response.json()) as { auth_mode?: string };
+  if (body.auth_mode !== "dev") {
+    throw new Error("OV_SANDBOX_URL must point to a disposable server in dev auth mode");
+  }
+  available = true;
 });
 
 const base = openVikingLayer({ baseUrl: SANDBOX_URL, cache: false });
@@ -61,8 +61,8 @@ const settle = async <A, E>(effect: Effect.Effect<A, E, Domains>): Promise<A | u
   expectTyped(await settles(effect));
 
 describe("mcps", () => {
-  it("lists servers, status and mounts", async () => {
-    if (!available) return;
+  it("lists servers, status and mounts", async (testContext) => {
+    if (!available) testContext.skip();
 
     const listed = await settle(withDomains((domains) => domains.mcps.list()));
     if (listed) expect(Array.isArray(listed.servers)).toBe(true);
@@ -74,8 +74,8 @@ describe("mcps", () => {
     if (mounts) expect(isContainer(mounts)).toBe(true);
   });
 
-  it("reports a bogus url as a typed error", async () => {
-    if (!available) return;
+  it("reports a bogus url as a typed error", async (testContext) => {
+    if (!available) testContext.skip();
 
     const validation = await settles(
       withDomains((domains) =>
@@ -91,8 +91,8 @@ describe("mcps", () => {
 });
 
 describe("compile", () => {
-  it("reads capabilities and configs", async () => {
-    if (!available) return;
+  it("reads capabilities and configs", async (testContext) => {
+    if (!available) testContext.skip();
 
     const capabilities = await settle(withDomains((domains) => domains.compile.capabilities()));
     if (capabilities) {
@@ -103,8 +103,8 @@ describe("compile", () => {
     if (configs) expect(Array.isArray((configs as { targets?: unknown }).targets)).toBe(true);
   });
 
-  it("tolerates config and operations being denied", async () => {
-    if (!available) return;
+  it("tolerates config and operations being denied", async (testContext) => {
+    if (!available) testContext.skip();
 
     const config = await settle(withDomains((domains) => domains.compile.config()));
     if (config) expect(isContainer(config)).toBe(true);
@@ -115,8 +115,8 @@ describe("compile", () => {
 });
 
 describe("observer", () => {
-  it("reads every observer snapshot", async () => {
-    if (!available) return;
+  it("reads every observer snapshot", async (testContext) => {
+    if (!available) testContext.skip();
 
     const snapshots = await settle(
       withDomains((domains) =>
@@ -139,8 +139,8 @@ describe("observer", () => {
 });
 
 describe("debug", () => {
-  it("reports health, vector count and a vector scroll", async () => {
-    if (!available) return;
+  it("reports health, vector count and a vector scroll", async (testContext) => {
+    if (!available) testContext.skip();
 
     const health = await settle(withDomains((domains) => domains.debug.health()));
     if (health) expect(typeof (health as { healthy?: unknown }).healthy).toBe("boolean");
@@ -156,16 +156,16 @@ describe("debug", () => {
 });
 
 describe("tasks", () => {
-  it("lists tasks", async () => {
-    if (!available) return;
+  it("lists tasks", async (testContext) => {
+    if (!available) testContext.skip();
     const tasks = await settle(withDomains((domains) => domains.tasks.list({ limit: 5 })));
     if (tasks) expect(Array.isArray(tasks)).toBe(true);
   });
 });
 
 describe("privacy", () => {
-  it("lists categories and the config tree", async () => {
-    if (!available) return;
+  it("lists categories and the config tree", async (testContext) => {
+    if (!available) testContext.skip();
 
     const categories = await settle(withDomains((domains) => domains.privacy.categories()));
     if (categories) expect(Array.isArray(categories)).toBe(true);
@@ -176,8 +176,8 @@ describe("privacy", () => {
 });
 
 describe("snapshot", () => {
-  it("reads the log and the ignore list", async () => {
-    if (!available) return;
+  it("reads the log and the ignore list", async (testContext) => {
+    if (!available) testContext.skip();
 
     const log = await settle(withDomains((domains) => domains.snapshot.log({ limit: 5 })));
     if (log) expect(isContainer(log)).toBe(true);
@@ -188,24 +188,24 @@ describe("snapshot", () => {
 });
 
 describe("agent evolution", () => {
-  it("tolerates the outcomes distribution being denied", async () => {
-    if (!available) return;
+  it("tolerates the outcomes distribution being denied", async (testContext) => {
+    if (!available) testContext.skip();
     const outcomes = await settle(withDomains((domains) => domains.agentEvolution.outcomes()));
     if (outcomes) expect(isContainer(outcomes)).toBe(true);
   });
 });
 
 describe("stats", () => {
-  it("reads memory stats", async () => {
-    if (!available) return;
+  it("reads memory stats", async (testContext) => {
+    if (!available) testContext.skip();
     const stats = await settle(withDomains((domains) => domains.stats.memories()));
     if (stats) expect(typeof stats["total_memories"]).toBe("number");
   });
 });
 
 describe("console", () => {
-  it("reads the dashboard summary", async () => {
-    if (!available) return;
+  it("reads the dashboard summary", async (testContext) => {
+    if (!available) testContext.skip();
     const summary = await settle(withDomains((domains) => domains.console.summary()));
     if (summary) expect(summary).toHaveProperty("context_counts");
   });

@@ -29,6 +29,11 @@ export interface CallArgs<K extends EndpointKey> {
   readonly retries?: number | undefined;
 }
 
+export type CallEnvelopeResult<K extends EndpointKey> =
+  (typeof endpoints)[K]["tag"] extends "webdav"
+    ? EndpointResponse<K>
+    : Envelope<EndpointResponse<K>>;
+
 export interface OpenVikingShape {
   readonly config: OpenVikingConfig;
   readonly call: <K extends EndpointKey>(
@@ -38,9 +43,13 @@ export interface OpenVikingShape {
   readonly callEnvelope: <K extends EndpointKey>(
     key: K,
     args?: CallArgs<K>,
-  ) => Effect.Effect<Envelope<EndpointResponse<K>>, OpenVikingError>;
-  readonly raw: (options: RequestOptions) => Effect.Effect<unknown, OpenVikingError>;
-  readonly stream: (options: RequestOptions) => Stream.Stream<ServerSentEvent, OpenVikingError>;
+  ) => Effect.Effect<CallEnvelopeResult<K>, OpenVikingError>;
+  readonly raw: (
+    options: RequestOptions,
+  ) => Effect.Effect<unknown, OpenVikingError>;
+  readonly stream: (
+    options: RequestOptions,
+  ) => Stream.Stream<ServerSentEvent, OpenVikingError>;
   readonly streamCall: <K extends EndpointKey>(
     key: K,
     args?: CallArgs<K>,
@@ -49,13 +58,17 @@ export interface OpenVikingShape {
   readonly metrics: MetricsShape | undefined;
 }
 
-export class OpenViking extends Context.Service<OpenViking, OpenVikingShape>()("OpenViking") {}
+export class OpenViking extends Context.Service<OpenViking, OpenVikingShape>()(
+  "OpenViking",
+) {}
 
 const fillPath = (
   template: string,
   params: Readonly<Record<string, unknown>> | undefined,
 ): Effect.Effect<string, OpenVikingDecodeError> => {
-  const names = [...template.matchAll(/\{([^}]+)\}/g)].map((match) => match[1] as string);
+  const names = [...template.matchAll(/\{([^}]+)\}/g)].map(
+    (match) => match[1] as string,
+  );
   for (const name of names) {
     if (params?.[name] === undefined) {
       return Effect.fail(
@@ -87,7 +100,7 @@ export const make = (
   const callEnvelope = <K extends EndpointKey>(
     key: K,
     args?: CallArgs<K>,
-  ): Effect.Effect<Envelope<EndpointResponse<K>>, OpenVikingError> =>
+  ): Effect.Effect<CallEnvelopeResult<K>, OpenVikingError> =>
     Effect.gen(function* () {
       const descriptor = endpoints[key];
       const path = yield* fillPath(
@@ -100,7 +113,11 @@ export const make = (
         ...(args?.query === undefined
           ? {}
           : { query: args.query as Readonly<Record<string, unknown>> }),
-        ...(args?.body === undefined ? {} : { body: args.body }),
+        ...(args?.body === undefined
+          ? {}
+          : descriptor.requestEncoding === "raw"
+            ? { rawBody: args.body as string | Uint8Array }
+            : { body: args.body }),
         ...(args?.headers === undefined ? {} : { headers: args.headers }),
         ...(args?.timeoutMs === undefined ? {} : { timeoutMs: args.timeoutMs }),
         ...(args?.retries === undefined ? {} : { retries: args.retries }),
@@ -118,23 +135,29 @@ export const make = (
           ? cached
           : metrics.track(descriptor.operationId, cached);
       const body = yield* tracked;
-      return body as Envelope<EndpointResponse<K>>;
+      return body as CallEnvelopeResult<K>;
     });
 
   const call = <K extends EndpointKey>(
     key: K,
     args?: CallArgs<K>,
   ): Effect.Effect<EndpointResponse<K>, OpenVikingError> =>
-    callEnvelope(key, args).pipe(Effect.map((body) => unwrap<EndpointResponse<K>>(body)));
+    callEnvelope(key, args).pipe(
+      Effect.map((body) => unwrap<EndpointResponse<K>>(body)),
+    );
 
-  const raw = (options: RequestOptions): Effect.Effect<unknown, OpenVikingError> => {
+  const raw = (
+    options: RequestOptions,
+  ): Effect.Effect<unknown, OpenVikingError> => {
     const run = semaphore.withPermit(execute(client, config, options));
     return metrics === undefined
       ? run
       : metrics.track(`raw:${options.method} ${options.path}`, run);
   };
 
-  const stream = (options: RequestOptions): Stream.Stream<ServerSentEvent, OpenVikingError> =>
+  const stream = (
+    options: RequestOptions,
+  ): Stream.Stream<ServerSentEvent, OpenVikingError> =>
     streamSse(client, config, options);
 
   const streamCall = <K extends EndpointKey>(
@@ -154,14 +177,27 @@ export const make = (
           ...(args?.query === undefined
             ? {}
             : { query: args.query as Readonly<Record<string, unknown>> }),
-          ...(args?.body === undefined ? {} : { body: args.body }),
+          ...(args?.body === undefined
+            ? {}
+            : descriptor.requestEncoding === "raw"
+              ? { rawBody: args.body as string | Uint8Array }
+              : { body: args.body }),
           ...(args?.headers === undefined ? {} : { headers: args.headers }),
         };
         return streamSse(client, config, options);
       }),
     );
 
-  return { config, call, callEnvelope, raw, stream, streamCall, cache, metrics };
+  return {
+    config,
+    call,
+    callEnvelope,
+    raw,
+    stream,
+    streamCall,
+    cache,
+    metrics,
+  };
 };
 
 export const layer = (overrides: Partial<OpenVikingConfig> = {}) =>

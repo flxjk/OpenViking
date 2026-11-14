@@ -9,14 +9,14 @@ import { endpoints } from "../src/generated/endpoints.js";
 const BASE_URL = process.env["OV_URL"] ?? "http://127.0.0.1:1933";
 
 const reachable = async (): Promise<boolean> => {
-  try {
-    const response = await fetch(`${BASE_URL}/health`, {
-      signal: AbortSignal.timeout(2_000),
-    });
-    return response.ok;
-  } catch {
-    return false;
+  if (!process.env["OV_URL"]) return false;
+  const response = await fetch(`${BASE_URL}/health`, {
+    signal: AbortSignal.timeout(2_000),
+  });
+  if (!response.ok) {
+    throw new Error(`Configured OV_URL health returned HTTP ${response.status}`);
   }
+  return true;
 };
 
 describe("url building", () => {
@@ -55,7 +55,7 @@ describe("envelope unwrapping", () => {
 });
 
 describe("endpoint catalog", () => {
-  it("covers every operation in the spec", () => {
+  it("includes the generated core HTTP operation catalog", () => {
     expect(Object.keys(endpoints).length).toBeGreaterThanOrEqual(190);
   });
 
@@ -72,10 +72,8 @@ describe("endpoint catalog", () => {
 });
 
 describe("live server", () => {
-  it("reports health through the typed client", async () => {
-    if (!(await reachable())) {
-      return;
-    }
+  it("reports health through the typed client", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const program = Effect.gen(function* () {
       const ov = yield* OpenViking;
       return yield* ov.call("healthCheckHealthGet");
@@ -86,10 +84,8 @@ describe("live server", () => {
     expect(result).toBeTruthy();
   });
 
-  it("reads system status through the typed client", async () => {
-    if (!(await reachable())) {
-      return;
-    }
+  it("reads system status through the typed client", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const program = Effect.gen(function* () {
       const ov = yield* OpenViking;
       return yield* ov.call("systemStatusApiV1SystemStatusGet");
@@ -100,10 +96,8 @@ describe("live server", () => {
     expect(result).toBeTruthy();
   });
 
-  it("surfaces a typed http error for an unknown path", async () => {
-    if (!(await reachable())) {
-      return;
-    }
+  it("surfaces a typed http error for an unknown path", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const program = Effect.gen(function* () {
       const ov = yield* OpenViking;
       return yield* ov.raw({ method: "GET", path: "/api/v1/definitely-not-a-route" });
@@ -138,8 +132,8 @@ describe("server-sent events", () => {
 });
 
 describe("concurrency", () => {
-  it("runs many calls through a bounded semaphore", async () => {
-    if (!(await reachable())) return;
+  it("runs many calls through a bounded semaphore", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const program = Effect.gen(function* () {
       const ov = yield* OpenViking;
       return yield* Effect.forEach(
@@ -157,8 +151,8 @@ describe("concurrency", () => {
 });
 
 describe("response cache", () => {
-  it("serves a repeated GET from the cache", async () => {
-    if (!(await reachable())) return;
+  it("serves a repeated GET from the cache", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const program = Effect.gen(function* () {
       const ov = yield* OpenViking;
       yield* ov.call("healthCheckHealthGet");
@@ -172,8 +166,8 @@ describe("response cache", () => {
     expect(stats?.misses).toBe(1);
   });
 
-  it("does not cache when disabled", async () => {
-    if (!(await reachable())) return;
+  it("does not cache when disabled", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const program = Effect.gen(function* () {
       const ov = yield* OpenViking;
       return ov.cache;
@@ -186,8 +180,8 @@ describe("response cache", () => {
 });
 
 describe("metrics", () => {
-  it("records every call through the client", async () => {
-    if (!(await reachable())) return;
+  it("records every call through the client", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const program = Effect.gen(function* () {
       const ov = yield* OpenViking;
       yield* ov.call("healthCheckHealthGet");
@@ -202,8 +196,8 @@ describe("metrics", () => {
     expect(Object.keys(snapshot?.endpoints ?? {})).toHaveLength(2);
   });
 
-  it("records a failed call as an error", async () => {
-    if (!(await reachable())) return;
+  it("records a failed call as an error", async (testContext) => {
+    if (!(await reachable())) testContext.skip();
     const program = Effect.gen(function* () {
       const ov = yield* OpenViking;
       yield* Effect.exit(ov.raw({ method: "GET", path: "/api/v1/not-a-route" }));

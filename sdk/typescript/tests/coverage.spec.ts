@@ -9,6 +9,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const domainsSource = readFileSync(join(here, "..", "src", "effect", "domains.ts"), "utf8");
 const readOnlySource = readFileSync(join(here, "..", "src", "generated", "responses.ts"), "utf8");
 const mutationSource = readFileSync(join(here, "..", "src", "generated", "mutations.ts"), "utf8");
+const specPath = process.env["OV_OPENAPI_SPEC"];
 
 const interfaceKeys = (source: string, name: string): string[] => {
   const block = source.split(`export interface ${name} {`)[1] ?? "";
@@ -22,6 +23,20 @@ const usedKeys = new Set(
 );
 
 describe("domain coverage", () => {
+  it.skipIf(!specPath)("matches every advertised HTTP method in the supplied server OpenAPI surface", () => {
+    const spec = JSON.parse(readFileSync(specPath!, "utf8")) as {
+      paths: Record<string, Record<string, unknown>>;
+    };
+    const expected = Object.entries(spec.paths).flatMap(([path, operations]) =>
+      Object.entries(operations)
+        .filter(([, operation]) => operation !== null && typeof operation === "object"
+          && ("operationId" in operation || "responses" in operation))
+        .map(([method]) => `${method.toUpperCase()} ${path}`),
+    );
+    const actual = Object.values(endpoints).map(({ method, path }) => `${method} ${path}`);
+    expect(actual.sort()).toEqual(expected.sort());
+  });
+
   it("reaches every generated endpoint", () => {
     const all = Object.keys(endpoints);
     const missing = all.filter((key) => !usedKeys.has(key));

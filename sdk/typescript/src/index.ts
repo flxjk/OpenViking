@@ -11,6 +11,7 @@ export {
   layerWith as openVikingLayerWith,
   make as makeOpenViking,
   type CallArgs,
+  type CallEnvelopeResult,
   type OpenVikingShape,
 } from "./effect/client.js";
 export {

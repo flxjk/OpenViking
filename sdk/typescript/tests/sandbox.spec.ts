@@ -16,18 +16,18 @@ const SESSION = `sdk-lifecycle-${RUN}`;
 let available = false;
 
 beforeAll(async () => {
-  try {
-    const response = await fetch(`${SANDBOX_URL}/health`, {
-      signal: AbortSignal.timeout(2_000),
-    });
-    const body = (await response.json()) as { auth_mode?: string };
-    available = response.ok;
-    if (body.auth_mode !== "dev") {
-      available = false;
-    }
-  } catch {
-    available = false;
+  if (!process.env["OV_SANDBOX_URL"]) return;
+  const response = await fetch(`${SANDBOX_URL}/health`, {
+    signal: AbortSignal.timeout(2_000),
+  });
+  if (!response.ok) {
+    throw new Error(`Configured OV_SANDBOX_URL health returned HTTP ${response.status}`);
   }
+  const body = (await response.json()) as { auth_mode?: string };
+  if (body.auth_mode !== "dev") {
+    throw new Error("OV_SANDBOX_URL must point to a disposable server in dev auth mode");
+  }
+  available = true;
 });
 
 const base = openVikingLayer({ baseUrl: SANDBOX_URL, cache: false });
@@ -43,8 +43,8 @@ const withDomains = <A, E>(f: (domains: Domains["Service"]) => Effect.Effect<A, 
   });
 
 describe("filesystem lifecycle", () => {
-  it("creates, reads, copies, moves and removes a resource", async () => {
-    if (!available) return;
+  it("creates, reads, copies, moves and removes a resource", async (testContext) => {
+    if (!available) testContext.skip();
 
     const created = await run(
       withDomains((domains) =>
@@ -94,8 +94,8 @@ describe("filesystem lifecycle", () => {
 });
 
 describe("session lifecycle", () => {
-  it("creates a session, appends messages, commits and deletes", async () => {
-    if (!available) return;
+  it("creates a session, appends messages, commits and deletes", async (testContext) => {
+    if (!available) testContext.skip();
 
     const created = await run(
       withDomains((domains) => domains.sessions.create({ session_id: SESSION })),
@@ -132,16 +132,16 @@ describe("session lifecycle", () => {
 });
 
 describe("skills and acl", () => {
-  it("validates a skill payload without writing one", async () => {
-    if (!available) return;
+  it("validates a skill payload without writing one", async (testContext) => {
+    if (!available) testContext.skip();
     const validation = await run(
       withDomains((domains) => domains.skills.validate({ data: { name: "sdk-lifecycle" } })),
     );
     expect(validation).toBeTruthy();
   });
 
-  it("surfaces the acl restriction as a typed error", async () => {
-    if (!available) return;
+  it("surfaces the acl restriction as a typed error", async (testContext) => {
+    if (!available) testContext.skip();
     const outcome = await run(
       Effect.match(withDomains((domains) => domains.acl.get({ uri: ROOT })), {
         onFailure: (error) => ({ ok: false as const, tag: (error as { _tag: string })._tag }),
@@ -157,8 +157,8 @@ describe("skills and acl", () => {
 });
 
 describe("observability during a lifecycle", () => {
-  it("counts every call it made", async () => {
-    if (!available) return;
+  it("counts every call it made", async (testContext) => {
+    if (!available) testContext.skip();
     const client = await run(
       Effect.gen(function* () {
         const ov = yield* OpenViking;
@@ -170,30 +170,30 @@ describe("observability during a lifecycle", () => {
 });
 
 describe("webdav lifecycle", () => {
-  it("puts, reads and deletes a resource", async () => {
-    if (!available) return;
+  it("puts, reads and deletes a resource", async (testContext) => {
+    if (!available) testContext.skip();
     const path = `sdk-webdav-${RUN}.md`;
 
     await run(
       withDomains((domains) =>
-        domains.webdav.putPath(path, { content: "webdav body" } as never),
+        domains.webdav.putPath(path, "webdav body"),
       ),
     );
 
     const read = await run(
-      withDomains((domains) => domains.webdav.getPath(path, {} as never)),
+      withDomains((domains) => domains.webdav.getPath(path)),
     );
-    expect(read).toBeTruthy();
+    expect(read).toBe("webdav body");
 
     await run(
-      withDomains((domains) => domains.webdav.removePath(path, {} as never)),
+      withDomains((domains) => domains.webdav.removePath(path)),
     );
   });
 });
 
 describe("snapshot ignore", () => {
-  it("sets, reads and clears the ignore list", async () => {
-    if (!available) return;
+  it("sets, reads and clears the ignore list", async (testContext) => {
+    if (!available) testContext.skip();
 
     await run(
       withDomains((domains) => domains.snapshot.setIgnore({ content: "*.tmp\n" })),
@@ -206,8 +206,8 @@ describe("snapshot ignore", () => {
 });
 
 describe("user settings", () => {
-  it("patches and clears add locations", async () => {
-    if (!available) return;
+  it("patches and clears add locations", async (testContext) => {
+    if (!available) testContext.skip();
 
     const patched = await run(
       withDomains((domains) => domains.userSettings.patchAddLocations({} as never)),
