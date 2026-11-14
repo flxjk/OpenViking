@@ -753,7 +753,7 @@ sdk-test-sandbox port="1944" workspace="/tmp/ov-sandbox/data":
       started=1
     fi
     status=0
-    ( cd "{{repo}}/sdk/typescript" && npm test ) || status=$?
+    ( cd "{{repo}}/sdk/typescript" && OV_SANDBOX_URL="http://127.0.0.1:{{port}}" npm test ) || status=$?
     if [ "$started" = "1" ]; then
       just sdk-sandbox-down "{{port}}" "{{workspace}}" >/dev/null
     fi
