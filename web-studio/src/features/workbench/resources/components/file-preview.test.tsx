@@ -147,7 +147,7 @@ const directory: VikingFsEntry = {
 
 function renderPreview(
   entry: VikingFsEntry,
-  onNavigate: ((uri: string) => void) | undefined,
+  onNavigate?: (uri: string) => void,
   directoryOverview?: string,
   directoryAbstract?: string,
 ) {

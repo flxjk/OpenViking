@@ -639,7 +639,9 @@ export function ServerConfigurationEditor() {
   if (!allowed)
     return (
       <p role="status" className="text-muted-foreground">
-        {t('models.rootRequired')}
+        {serverMode === 'dev'
+          ? t('appShell:modes.developmentConfigurationSetup')
+          : t('models.rootRequired')}
       </p>
     )
   const loadError = query.isError ? (

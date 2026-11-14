@@ -16,7 +16,8 @@ function readRequestHeader(config: AxiosRequestConfig, name: string): string {
     const value = headers.get(name)
     return typeof value === 'string' ? value : ''
   }
-  const value = headers[name] ?? headers[name.toLowerCase()]
+  const values = headers as Record<string, unknown>
+  const value = values[name] ?? values[name.toLowerCase()]
   return typeof value === 'string' ? value : ''
 }
 

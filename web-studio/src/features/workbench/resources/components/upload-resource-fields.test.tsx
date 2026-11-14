@@ -8,10 +8,13 @@ import {
   waitFor,
 } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { TFunction } from 'i18next'
 
 import type { SelectedUploadFile } from '#/features/workbench/resources/components/upload-resource-fields'
 import { UploadResourceFields } from '#/features/workbench/resources/components/upload-resource-fields'
 import { MAX_UPLOAD_FILES } from '#/features/workbench/resources/lib/upload'
+
+const t = ((key: string) => key) as TFunction<'addResource'>
 
 const mocks = vi.hoisted(() => ({
   onDrop: null as ((files: File[]) => void) | null,
@@ -57,7 +60,7 @@ describe('UploadResourceFields', () => {
         onFilesChange={(update) => {
           current = typeof update === 'function' ? update(current) : update
         }}
-        t={(key) => key}
+        t={t}
       />,
     )
 
@@ -91,7 +94,7 @@ describe('UploadResourceFields', () => {
         onFilesChange={(update) => {
           current = typeof update === 'function' ? update(current) : update
         }}
-        t={(key) => key}
+        t={t}
       />,
     )
 
@@ -119,7 +122,7 @@ describe('UploadResourceFields', () => {
         onFilesChange={(update) => {
           current = typeof update === 'function' ? update(current) : update
         }}
-        t={(key) => key}
+        t={t}
       />,
     )
 

@@ -1320,7 +1320,6 @@ it('keeps model row controls clickable without starting a drag', async () => {
   mount()
   const model = await screen.findByRole('button', {
     name: 'model-a',
-    exact: true,
   })
   const transfer = { setData: vi.fn(), setDragImage: vi.fn() }
   expect(fireEvent.dragStart(model, { dataTransfer: transfer })).toBe(false)

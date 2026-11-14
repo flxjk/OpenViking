@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "vite dev --host 127.0.0.1 --port 3000",
     "build": "vite build",
+    "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "test": "vitest run",
     "lint": "eslint src --ignore-pattern 'src/gen/**' --ignore-pattern 'src/routeTree.gen.ts'",
@@ -15,7 +16,7 @@
     "check": "prettier --write 'src/**/*.{ts,tsx}' && eslint src --fix --ignore-pattern 'src/gen/**' --ignore-pattern 'src/routeTree.gen.ts'",
     "gen-server-client": "sh ./script/gen-server-client/gen-server-client.sh",
     "test:i18n": "vitest run src/i18n src/shared/components/code-editor.test.tsx script/eslint-i18n.test.ts",
-    "prebuild": "npm run lint && npm run test:i18n"
+    "prebuild": "npm run typecheck && npm run lint && npm run test:i18n"
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",

@@ -57,6 +57,8 @@ const workspace = {
       serverConfigurationHint:
         '管理模型、存储与服务运行参数，仅服务管理员可修改。',
       rootRequired: '服务配置需要 Root API Key。',
+      developmentConfigurationSetup:
+        '管理服务配置前，请在 ov.conf 中将 server.auth_mode 设为 api_key 并配置 server.root_api_key，重启服务后使用该 Root Key 连接。',
     },
     footer: {
       agentIntegrations: 'Agent 接入',

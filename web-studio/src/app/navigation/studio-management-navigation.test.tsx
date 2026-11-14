@@ -58,7 +58,6 @@ it('highlights only server configuration in the service management group', () =>
   const server = screen.getByRole('link', { name: 'Server configuration' })
   const configuration = screen.getByRole('link', {
     name: 'Configuration',
-    exact: true,
   })
   expect(server.hasAttribute('data-active')).toBe(true)
   expect(configuration.hasAttribute('data-active')).toBe(false)

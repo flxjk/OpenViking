@@ -60,6 +60,8 @@ const workspace = {
       serverConfigurationHint:
         'Manage models, storage, and runtime parameters. Only server administrators can change these settings.',
       rootRequired: 'Service configuration requires a Root API Key.',
+      developmentConfigurationSetup:
+        'To manage server configuration, set server.auth_mode to api_key and configure server.root_api_key in ov.conf, restart the service, then connect using that Root key.',
     },
     footer: {
       agentIntegrations: 'Agent Integrations',

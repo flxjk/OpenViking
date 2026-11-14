@@ -135,7 +135,7 @@ export function SnapshotComparisonDialog({ onClose, uri }: Props) {
                     ...versionOptions,
                   ]}
                   onValueChange={(value) =>
-                    setBase(value === EMPTY_VERSION ? '' : value)
+                    setBase(value === EMPTY_VERSION ? '' : (value ?? ''))
                   }
                 >
                   <SelectTrigger
@@ -169,7 +169,9 @@ export function SnapshotComparisonDialog({ onClose, uri }: Props) {
                     { value: 'current', label: t('currentContent') },
                     ...versionOptions,
                   ]}
-                  onValueChange={setTarget}
+                  onValueChange={(value) => {
+                    if (value !== null) setTarget(value)
+                  }}
                 >
                   <SelectTrigger
                     id="snapshot-target-version"

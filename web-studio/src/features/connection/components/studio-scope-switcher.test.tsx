@@ -400,27 +400,19 @@ it('keeps Account creation in the management selector', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'create' }))
   expect(await screen.findByRole('dialog')).toBeTruthy()
 })
-it.each([
-  '/admin/configuration/server',
-  '/admin/configuration/server/',
-] as const)(
-  'omits Account and User controls and directory queries when the page has no Account scope: %s',
-  (path) => {
-    mount(path, false)
-    expect(
-      screen.getByRole('button', { name: 'connections.switch' }),
-    ).toBeTruthy()
-    expect(
-      screen.queryByRole('button', { name: 'scope.switchAccount' }),
-    ).toBeNull()
-    expect(
-      screen.queryByRole('group', { name: 'scope.managementAccount' }),
-    ).toBeNull()
-    expect(
-      screen.queryByRole('button', { name: 'scope.switchUser' }),
-    ).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'connections.switch' }))
-    expect(state.accounts).not.toHaveBeenCalled()
-    expect(state.users).not.toHaveBeenCalled()
-  },
-)
+it('omits Account and User controls and directory queries when the page has no Account scope', () => {
+  mount('/admin/settings', false)
+  expect(
+    screen.getByRole('button', { name: 'connections.switch' }),
+  ).toBeTruthy()
+  expect(
+    screen.queryByRole('button', { name: 'scope.switchAccount' }),
+  ).toBeNull()
+  expect(
+    screen.queryByRole('group', { name: 'scope.managementAccount' }),
+  ).toBeNull()
+  expect(screen.queryByRole('button', { name: 'scope.switchUser' })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'connections.switch' }))
+  expect(state.accounts).not.toHaveBeenCalled()
+  expect(state.users).not.toHaveBeenCalled()
+})

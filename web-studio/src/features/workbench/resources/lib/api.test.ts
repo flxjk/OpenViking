@@ -11,7 +11,7 @@ const { getContentReadMock, getFsLsMock } = vi.hoisted(() => ({
 }))
 
 vi.mock('#/shared/api/ov-client/index', async (importOriginal) => {
-  const original = await importOriginal()
+  const original = await importOriginal<Record<string, unknown>>()
   return {
     ...original,
     getContentRead: getContentReadMock,

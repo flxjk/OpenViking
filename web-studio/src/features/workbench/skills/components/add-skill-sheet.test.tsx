@@ -14,13 +14,16 @@ afterEach(cleanup)
 it('clears a previous draft whenever the drawer is reopened', () => {
   const props = { onOpenChange: vi.fn(), onAdded: vi.fn() }
   const { rerender } = render(<AddSkillSheet {...props} open />)
-  fireEvent.change(screen.getByRole('textbox', { name: 'add.content' }), {
-    target: { value: 'old skill' },
-  })
+  fireEvent.change(
+    screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'add.content' }),
+    {
+      target: { value: 'old skill' },
+    },
+  )
   rerender(<AddSkillSheet {...props} open={false} />)
   rerender(<AddSkillSheet {...props} open />)
   expect(
-    screen.getByRole('textbox', {
+    screen.getByRole<HTMLTextAreaElement>('textbox', {
       name: 'add.content',
     }).value,
   ).toBe('')
@@ -33,13 +36,13 @@ it('removes an uploaded file and allows choosing another', async () => {
   first.text = vi.fn().mockResolvedValue('first')
   await act(async () => fireEvent.change(input, { target: { files: [first] } }))
   expect(
-    screen.getByRole('textbox', {
+    screen.getByRole<HTMLTextAreaElement>('textbox', {
       name: 'add.content',
     }).value,
   ).toBe('first')
   fireEvent.click(screen.getByRole('button', { name: /add.removeFile/ }))
   expect(
-    screen.getByRole('textbox', {
+    screen.getByRole<HTMLTextAreaElement>('textbox', {
       name: 'add.content',
     }).value,
   ).toBe('')
@@ -49,7 +52,7 @@ it('removes an uploaded file and allows choosing another', async () => {
     fireEvent.change(input, { target: { files: [second] } }),
   )
   expect(
-    screen.getByRole('textbox', {
+    screen.getByRole<HTMLTextAreaElement>('textbox', {
       name: 'add.content',
     }).value,
   ).toBe('second')
