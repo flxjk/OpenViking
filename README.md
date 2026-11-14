@@ -398,6 +398,20 @@ To propose a partnership, [open an issue](https://github.com/volcengine/OpenViki
 
 ## Community & Contributing
 
+### Run the local development stack
+
+From the repository root, run:
+
+```bash
+npm run dev
+```
+
+This starts OpenViking with VikingBot, Web Studio, the React component library watcher and UI docs, the product docs, and the TypeScript SDK watcher. Install the Python server and bot dependencies once with `uv sync --extra bot`; missing locked npm dependencies are installed on first run. If the `DSH_DIR` checkout (default `~/git/deepseek-harness`) is present with dependencies installed, its web host also starts. Press `Ctrl+C` to stop processes started by the command. Use `npm run dev:plan` to inspect the launch plan without starting services.
+
+The local URLs are Web Studio at `http://127.0.0.1:3000/onboarding`, UI docs at `http://127.0.0.1:3002/ui/`, product docs at `http://127.0.0.1:5173/`, OpenViking at `http://127.0.0.1:1933`, and VikingBot through `/bot/v1/` on the OpenViking server. DSH uses `http://127.0.0.1:3090` when available. Set `OV_CONFIG`, `OV_HOST`, `OV_PORT`, `BOT_PORT`, `DOCS_PORT`, `DSH_DIR`, or `DSH_PORT` to override defaults.
+
+The Python and Go SDKs, framework integrations, and host extensions (Claude Code, OpenClaw, OpenCode, Pi, OpenWebUI, and similar plugins) are libraries or load inside their host applications, so they are not separate servers started by this command. The DSH host is included when available; account-linked bridges such as WhatsApp remain opt-in.
+
 - **Docs**: [docs.openviking.ai](https://docs.openviking.ai/) · [FAQ](https://docs.openviking.ai/en/faq/faq)
 - **Blog**: [blog.openviking.ai](https://blog.openviking.ai/)
 - **Team**: [About us](https://docs.openviking.ai/en/about/01-about-us)

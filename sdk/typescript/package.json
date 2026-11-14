@@ -29,6 +29,7 @@
   "scripts": {
     "generate": "python3 scripts/generate.py && python3 scripts/probe_responses.py",
     "generate:mutations": "python3 scripts/probe_mutations.py && python3 scripts/generate.py",
+    "dev": "tsup src/index.ts src/generated/index.ts --format esm,cjs --dts --watch",
     "build": "tsup src/index.ts src/generated/index.ts --format esm,cjs --dts --clean",
     "format": "prettier --write src tests",
     "format:check": "prettier --check src tests",

@@ -1,0 +1,9 @@
+{
+  "name": "openviking-dev-stack",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/dev-all.mjs",
+    "dev:plan": "node scripts/dev-all.mjs --plan"
+  }
+}
