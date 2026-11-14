@@ -9,14 +9,12 @@ import { titleFromMarkdown, docPageTitle, documentationNav, documentationSidebar
 
 const docsRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const repo = process.env.GITHUB_REPOSITORY || 'volcengine/OpenViking'
-const githubRepositoryUrl = `https://github.com/${repo}?utm_source=docs&utm_medium=referral&utm_campaign=docs`
+const githubRepositoryUrl = `https://github.com/${repo}`
 const configuredBase = '/' + (process.env.DOCS_BASE || '/').split('/').filter(Boolean).join('/') + '/'
 const base = configuredBase === '//' ? '/' : configuredBase
 const siteRoot = `${(process.env.DOCS_SITE_URL || 'https://docs.openviking.ai').replace(/\/$/, '')}${base}`
 // Version the filename so social crawlers do not reuse the previous artwork.
 const ogImageUrl = `${siteRoot}og-openviking-docs-8efb541b.png`
-// Same GA4 property as openviking.ai; the linker keeps one session across both domains.
-const gaMeasurementId = 'G-86SNDZ0EY9'
 const languageSource = fs.readFileSync(path.join(docsRoot, '.vitepress/theme/language-preference.js'), 'utf8').replace('export function', 'function')
 const entrySource = fs.readFileSync(path.join(docsRoot, '.vitepress/theme/language-entry.js'), 'utf8').replace('export function', 'function')
 const languageBootstrapScript = `${languageSource}\n${entrySource}\n;(() => {
@@ -218,11 +216,6 @@ export default defineConfig({
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
     ['meta', { name: 'twitter:image', content: ogImageUrl }],
     ['meta', { name: 'twitter:image:alt', content: 'OpenViking / docs — Guides and API reference for AI agent context.' }],
-    ['script', { async: '', src: `https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}` }],
-    ['script', {}, `window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());
-gtag('config', '${gaMeasurementId}', { linker: { domains: ['openviking.ai', 'docs.openviking.ai'] } });`],
     ['script', {}, preferenceBootstrapScript],
     ['script', {}, languageBootstrapScript]
   ],

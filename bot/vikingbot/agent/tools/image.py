@@ -8,8 +8,8 @@ from io import BytesIO
 from typing import Any, Awaitable, Callable
 
 import httpx
-import litellm
 
+from openviking.models.litellm_runtime import litellm
 from vikingbot.agent.tools.base import Tool, ToolContext
 from vikingbot.bus.events import OutboundMessage
 from vikingbot.utils import detect_image_format, get_data_path

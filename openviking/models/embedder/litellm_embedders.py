@@ -6,12 +6,10 @@ Uses litellm to provide a unified embedding interface across many providers
 (OpenRouter, Ollama, vLLM, and any OpenAI-compatible endpoint).
 """
 
-import os
 from typing import Any, Dict, List, Optional
 
-import litellm
-
 from openviking.models.embedder.base import DenseEmbedderBase, EmbedResult
+from openviking.models.litellm_runtime import litellm
 from openviking.models.model_error import model_error_boundary
 from openviking.telemetry import get_current_telemetry
 from openviking_cli.utils import get_logger
@@ -70,8 +68,6 @@ class LiteLLMDenseEmbedder(DenseEmbedderBase):
         """
         super().__init__(model_name, config)
         self.provider = "litellm"
-
-        os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
 
         self.api_key = api_key
         self.api_base = api_base

@@ -61,7 +61,7 @@ class LiteLLMRerankClient(RerankBase):
             return []
 
         try:
-            import litellm
+            from openviking.models.litellm_runtime import litellm
 
             started = time.monotonic()
             response = litellm.rerank(

@@ -1,6 +1,6 @@
 import { docsLanguageEntry } from './language-entry.js'
 import { createLanguagePreference } from './language-preference.js'
-import { h, defineAsyncComponent, nextTick } from 'vue'
+import { h, defineAsyncComponent } from 'vue'
 import DefaultTheme, { VPButton } from 'vitepress/theme-without-fonts'
 import DocBreadcrumb from './components/DocBreadcrumb.vue'
 import AgentPrompt from './components/AgentPrompt.vue'
@@ -20,8 +20,6 @@ import CopyMarkdownButton from './CopyMarkdownButton.vue'
 import OpenVikingSearch from './OpenVikingSearch.vue'
 import ApiExampleTabsEnhancer from './ApiExampleTabsEnhancer.vue'
 import { initVikingBotWidget, syncVikingBotLocale } from './vikingbot-widget'
-import { trackEvent, trackPageView } from './track'
-import { startDocsAttribution } from './attribution'
 import './custom.css'
 import './reading.css'
 import './header.css'
@@ -281,35 +279,24 @@ export default {
     app.component('DocsHome', defineAsyncComponent(() => import('./components/DocsHome.vue')))
     if (import.meta.env.SSR || typeof window === 'undefined') return
 
-    const attribution = startDocsAttribution(withBase('/'))
-    import.meta.hot?.dispose(attribution.dispose)
     const policy = createLanguagePreference()
     const previousBeforeHook = router.onBeforeRouteChange
     router.onBeforeRouteChange = async (to: string) => {
       if (await previousBeforeHook?.(to) === false) return false
       const languageTarget = docsLanguageEntry(new URL(to, location.href).href, withBase('/'), policy)
-      const target = attribution.routeTarget(languageTarget ?? to) ?? languageTarget
+      const target = languageTarget
       if (target) {
         void router.go(target)
         return false
       }
     }
-    trackPageView(window.location.pathname)
-    document.addEventListener('click', (event) => {
-      const block = (event.target as Element).closest?.('.vp-doc div[class*="language-"] > button.copy')?.parentElement
-      if (!block) return
-      const language = [...block.classList].find(name => name.startsWith('language-'))?.slice('language-'.length) ?? ''
-      trackEvent('copy-code', { language })
-    })
     initVikingBotWidget()
 
     const previousHook = router.onAfterRouteChanged
     router.onAfterRouteChanged = (to: string) => {
       previousHook?.(to)
-      trackPageView(to.split('?')[0].split('#')[0])
       // Update the existing widget after VitePress applies the page language.
       syncVikingBotLocale()
-      void nextTick().then(attribution.refresh)
     }
   }
 }

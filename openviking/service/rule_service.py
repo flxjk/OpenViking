@@ -1567,7 +1567,7 @@ class RuleService:
         model = _vlm_setting(vlm, "model")
         if configured_window is None and num_ctx is None and isinstance(model, str) and model:
             try:
-                from litellm import model_cost
+                from openviking.models.litellm_runtime import model_cost
 
                 loaded = model_cost.get(model)
                 if loaded is None and "/" in model:
