@@ -296,7 +296,7 @@ def acl_ancestors(uri: str) -> list[str]:
 
 
 def has_implicit_manage(ctx: RequestContext, uri: str) -> bool:
-    return is_acl_uri(uri) and ctx.role == Role.ADMIN
+    return is_acl_uri(uri) and ctx.role in (Role.ADMIN, Role.ROOT)
 
 
 def acl_allows(acl: EffectiveAcl, ctx: RequestContext, action: AclAction) -> bool:

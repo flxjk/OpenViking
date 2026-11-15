@@ -173,6 +173,15 @@ logs/
 *.tmp
 *.temp
 .tmp/
+
+# Local MCP stdio->HTTP bridge runtime (scripts/mcp-bridges.sh)
+.run/mcp-bridges/
+
+# Local dev runtime state (supervisor, caches, scratch DBs)
+.run/
+.ov-cache/
+.ov-data/
+db_test_filters_*/
 ov.conf
 ovcli.conf
 result/

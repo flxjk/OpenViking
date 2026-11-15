@@ -11,6 +11,7 @@ from fastapi import Request
 
 from openviking.server.auth.plugin import AuthPlugin
 from openviking.server.identity import ResolvedIdentity, Role
+from openviking.server.store_assembly import build_api_key_manager
 
 _LOCALHOST_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
@@ -64,8 +65,34 @@ class DevAuthPlugin(AuthPlugin):
         sys.exit(1)
 
     async def initialize(self, app, service, config) -> None:
-        """Dev mode does not need an APIKeyManager."""
-        app.state.api_key_manager = None
+        """Dev mode builds the account store so the Admin API is usable locally.
+
+        Dev mode has no root key: identity always resolves to ROOT / account
+        ``default`` / user ``default`` without a credential. The manager exists only
+        to satisfy the Admin API's account-store facade; it never authenticates a request.
+        """
+        manager = build_api_key_manager(
+            root_key=None,
+            viking_fs=service.viking_fs,
+            api_key_hashing_enabled=config.api_key_hashing_enabled,
+            service_name=app.state.service_name,
+            account_store_provider=config.account_store.provider,
+            account_store_params=config.account_store.params,
+            account_store_watch_enabled=config.api_key_watch_enabled,
+            account_store_watch_interval_seconds=config.api_key_watch_interval_seconds,
+            issue_user_keys=False,
+        )
+        await manager.load()
+        self._api_key_manager = manager
+        app.state.api_key_manager = manager
+
+    async def shutdown(self) -> None:
+        manager = getattr(self, "_api_key_manager", None)
+        try:
+            if manager is not None:
+                await manager.close()
+        finally:
+            self._api_key_manager = None
 
     def can_skip_api_key_for_bot_proxy(self) -> bool:
         return True
