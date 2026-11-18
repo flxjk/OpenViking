@@ -552,6 +552,10 @@ export type BatchWriteOperation = {
      */
     if_absent?: boolean;
     /**
+     * Resolve Conflicts
+     */
+    resolve_conflicts?: boolean;
+    /**
      * Tags
      */
     tags?: Array<string> | null;
@@ -579,6 +583,10 @@ export type BatchWriteRequest = {
      */
     wait?: boolean;
     /**
+     * Use Snapshot
+     */
+    use_snapshot?: boolean;
+    /**
      * Timeout
      *
      * Deprecated compatibility parameter; accepted and ignored.
@@ -604,10 +612,6 @@ export type BatchWriteRequest = {
      * Processing Mode
      */
     processing_mode?: 'semantic_and_vectors' | 'vectors_only';
-    /**
-     * Edit Source
-     */
-    edit_source?: 'manual' | 'agent' | 'compile';
 };
 
 /**
@@ -631,17 +635,19 @@ export type BodyTempUploadApiV1ResourcesTempUploadPost = {
 /**
  * CompileConfigUpdate
  *
- * Whole update settings for one Compile target (POST /compile/config/update).
+ * Replace a named configuration while keeping its output directory and execution timestamps.
  */
 export type CompileConfigUpdate = {
     /**
-     * To
-     */
-    to: string;
-    /**
      * From
      */
-    from: Array<string>;
+    from?: Array<string>;
+    /**
+     * To
+     *
+     * Output directory; omission or null preserves the saved directory.
+     */
+    to?: string | null;
     /**
      * Skill
      */
@@ -650,6 +656,18 @@ export type CompileConfigUpdate = {
      * Instruction
      */
     instruction?: string | null;
+    /**
+     * Args
+     */
+    args?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Compile Name
+     *
+     * Case-sensitive name using Han characters, ASCII letters, digits, underscores or hyphens, with no leading hyphen. Maximum length: 64 characters for ASCII-only names, 32 for names containing Han characters.
+     */
+    compile_name: unknown;
     /**
      * Auto Update
      */
@@ -662,6 +680,48 @@ export type CompileConfigUpdate = {
     } & DailySchedule) | ({
         frequency: 'weekly';
     } & WeeklySchedule) | null;
+    /**
+     * Updated By
+     *
+     * User credited with this update. Defaults to the requesting user.
+     */
+    updated_by?: string | null;
+};
+
+/**
+ * CompileCreateRequest
+ *
+ * Save complete inputs under a caller-supplied configuration name unique to its creator within the account.
+ */
+export type CompileCreateRequest = {
+    /**
+     * From
+     */
+    from?: Array<string>;
+    /**
+     * To
+     */
+    to: string;
+    /**
+     * Skill
+     */
+    skill: string;
+    /**
+     * Instruction
+     */
+    instruction?: string | null;
+    /**
+     * Args
+     */
+    args?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Compile Name
+     *
+     * Case-sensitive name using Han characters, ASCII letters, digits, underscores or hyphens, with no leading hyphen. Maximum length: 64 characters for ASCII-only names, 32 for names containing Han characters.
+     */
+    compile_name: unknown;
 };
 
 /**
@@ -686,8 +746,16 @@ export type CompileEmbeddingRequest = {
 
 /**
  * CompileRequest
+ *
+ * Execute saved inputs for an optional owner, or full one-off inputs.
  */
 export type CompileRequest = {
+    /**
+     * Compile Name
+     *
+     * Saved configuration name; omit for a one-off execution with complete inputs.
+     */
+    compile_name?: unknown | null;
     /**
      * From
      */
@@ -695,17 +763,19 @@ export type CompileRequest = {
     /**
      * To
      */
-    to: string;
+    to?: string | null;
     /**
      * Skill
      */
-    skill: string;
+    skill?: string | null;
     /**
      * Instruction
      */
     instruction?: string | null;
     /**
      * Args
+     *
+     * Named runs use only owner_user_id; other args are ignored.
      */
     args?: {
         [key: string]: unknown;
@@ -836,13 +906,9 @@ export type CreateSessionRequest = {
 /**
  * DailySchedule
  *
- * Beijing-time trigger time; weekly adds ``weekday`` (1=Monday … 7=Sunday).
+ * Run every day at the same Beijing time.
  */
 export type DailySchedule = {
-    /**
-     * Frequency
-     */
-    frequency: 'daily';
     /**
      * Hour
      */
@@ -851,6 +917,10 @@ export type DailySchedule = {
      * Minute
      */
     minute?: number;
+    /**
+     * Frequency
+     */
+    frequency: 'daily';
 };
 
 /**
@@ -1441,6 +1511,54 @@ export type PreflightOpenVikingAssetRequest = {
      */
     commit?: string | null;
     auth_config?: GitAuthConfig | null;
+};
+
+/**
+ * PrivacyConfig
+ *
+ * Sparse privacy overrides; unset fields inherit deployment defaults.
+ */
+export type PrivacyConfig = {
+    /**
+     * Mode
+     */
+    mode?: 'off' | 'registered' | 'auto' | 'auto_strict' | null;
+    /**
+     * Restore
+     */
+    restore?: boolean | null;
+    /**
+     * Custom Rules
+     */
+    custom_rules?: Array<PrivacyRuleConfig> | null;
+    /**
+     * Never Mask
+     */
+    never_mask?: Array<string> | null;
+};
+
+/**
+ * PrivacyRuleConfig
+ *
+ * A credential prefix or a Rust regular expression.
+ */
+export type PrivacyRuleConfig = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Prefix
+     */
+    prefix?: string | null;
+    /**
+     * Min Length
+     */
+    min_length?: number | null;
+    /**
+     * Regex
+     */
+    regex?: string | null;
 };
 
 /**
@@ -2115,6 +2233,7 @@ export type UserConfig = {
         [key: string]: unknown;
     } | null;
     ttl?: TtlConfig | null;
+    privacy?: PrivacyConfig;
     agent_evolution?: DeprecatedUserAgentEvolutionConfig;
 };
 
@@ -2132,6 +2251,7 @@ export type UserSettingsPatch = {
         [key: string]: unknown;
     } | null;
     ttl?: TtlConfig | null;
+    privacy?: PrivacyConfig | null;
 };
 
 /**
@@ -2250,12 +2370,10 @@ export type WatchCredentialState = {
 
 /**
  * WeeklySchedule
+ *
+ * Run on one ISO weekday (Monday=1 through Sunday=7), assigned if omitted.
  */
 export type WeeklySchedule = {
-    /**
-     * Frequency
-     */
-    frequency: 'weekly';
     /**
      * Hour
      */
@@ -2264,6 +2382,10 @@ export type WeeklySchedule = {
      * Minute
      */
     minute?: number;
+    /**
+     * Frequency
+     */
+    frequency: 'weekly';
     /**
      * Weekday
      */
@@ -2293,6 +2415,10 @@ export type WriteContentRequest = {
      */
     wait?: boolean;
     /**
+     * Use Snapshot
+     */
+    use_snapshot?: boolean;
+    /**
      * Timeout
      *
      * Deprecated compatibility parameter; accepted and ignored.
@@ -2320,13 +2446,13 @@ export type WriteContentRequest = {
     tag_mode?: 'replace' | 'append' | 'clear';
     acl?: AclSpec | null;
     /**
-     * Edit Source
-     */
-    edit_source?: 'manual' | 'agent' | 'compile';
-    /**
      * Resolve Conflicts
      */
     resolve_conflicts?: boolean;
+    /**
+     * Defer Processing
+     */
+    defer_processing?: boolean;
 };
 
 /**
@@ -2469,7 +2595,7 @@ export type OpenvikingServerRoutersSnapshotCommitRequest = {
 /**
  * RestoreRequest
  *
- * Restore a directory snapshot or one Compile output file; modes cannot be mixed.
+ * Restore a directory snapshot or one file; modes cannot be mixed.
  */
 export type OpenvikingServerRoutersSnapshotRestoreRequest = {
     /**
@@ -2493,7 +2619,7 @@ export type OpenvikingServerRoutersSnapshotRestoreRequest = {
     /**
      * Current Commit Id
      *
-     * Expected last commit changing path
+     * Optional expected last commit changing path
      */
     current_commit_id?: string | null;
     /**
@@ -4864,6 +4990,51 @@ export type GetAgentEvolutionExperiencesOutcomesResponses = {
     200: unknown;
 };
 
+export type PostCompileCreateData = {
+    body: CompileCreateRequest;
+    headers?: {
+        /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'x-api-key'?: string | null;
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Openviking-Account
+         */
+        'X-OpenViking-Account'?: string | null;
+        /**
+         * X-Openviking-User
+         */
+        'X-OpenViking-User'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/compile/create';
+};
+
+export type PostCompileCreateErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PostCompileCreateError = PostCompileCreateErrors[keyof PostCompileCreateErrors];
+
+export type PostCompileCreateResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
 export type PostCompileData = {
     body: CompileRequest;
     headers?: {
@@ -4912,10 +5083,6 @@ export type PostCompileError = PostCompileErrors[keyof PostCompileErrors];
 
 export type PostCompileResponses = {
     /**
-     * Compile update settings saved
-     */
-    200: unknown;
-    /**
      * Successful Response
      */
     202: unknown;
@@ -4948,9 +5115,9 @@ export type GetCompileConfigData = {
     path?: never;
     query: {
         /**
-         * To
+         * Compile Name
          */
-        to: string;
+        compile_name: unknown;
     };
     url: '/api/v1/compile/config';
 };
@@ -5050,6 +5217,14 @@ export type GetCompileConfigsData = {
          * Cursor
          */
         cursor?: string | null;
+        /**
+         * Scope
+         */
+        scope?: 'user' | 'account';
+        /**
+         * Compile Name
+         */
+        compile_name?: unknown | null;
     };
     url: '/api/v1/compile/configs';
 };
@@ -5070,7 +5245,7 @@ export type GetCompileConfigsResponses = {
     200: unknown;
 };
 
-export type GetCompileOperationsData = {
+export type GetCompileRunsData = {
     body?: never;
     headers?: {
         /**
@@ -5097,9 +5272,9 @@ export type GetCompileOperationsData = {
     path?: never;
     query: {
         /**
-         * To
+         * Compile Name
          */
-        to: string;
+        compile_name: unknown;
         /**
          * Limit
          */
@@ -5109,26 +5284,26 @@ export type GetCompileOperationsData = {
          */
         cursor?: string | null;
     };
-    url: '/api/v1/compile/operations';
+    url: '/api/v1/compile/runs';
 };
 
-export type GetCompileOperationsErrors = {
+export type GetCompileRunsErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type GetCompileOperationsError = GetCompileOperationsErrors[keyof GetCompileOperationsErrors];
+export type GetCompileRunsError = GetCompileRunsErrors[keyof GetCompileRunsErrors];
 
-export type GetCompileOperationsResponses = {
+export type GetCompileRunsResponses = {
     /**
      * Successful Response
      */
     200: unknown;
 };
 
-export type GetCompileOperationByOperationIdData = {
+export type GetCompileRunsByTaskIdData = {
     body?: never;
     headers?: {
         /**
@@ -5154,36 +5329,36 @@ export type GetCompileOperationByOperationIdData = {
     };
     path: {
         /**
-         * Operation Id
+         * Task Id
          */
-        operation_id: string;
+        task_id: string;
     };
     query: {
         /**
-         * To
+         * Compile Name
          */
-        to: string;
+        compile_name: unknown;
     };
-    url: '/api/v1/compile/operations/{operation_id}';
+    url: '/api/v1/compile/runs/{task_id}';
 };
 
-export type GetCompileOperationByOperationIdErrors = {
+export type GetCompileRunsByTaskIdErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type GetCompileOperationByOperationIdError = GetCompileOperationByOperationIdErrors[keyof GetCompileOperationByOperationIdErrors];
+export type GetCompileRunsByTaskIdError = GetCompileRunsByTaskIdErrors[keyof GetCompileRunsByTaskIdErrors];
 
-export type GetCompileOperationByOperationIdResponses = {
+export type GetCompileRunsByTaskIdResponses = {
     /**
      * Successful Response
      */
     200: unknown;
 };
 
-export type GetCompileOperationIdOutputsData = {
+export type GetCompileRunsOutputsByTaskIdData = {
     body?: never;
     headers?: {
         /**
@@ -5209,15 +5384,15 @@ export type GetCompileOperationIdOutputsData = {
     };
     path: {
         /**
-         * Operation Id
+         * Task Id
          */
-        operation_id: string;
+        task_id: string;
     };
     query: {
         /**
-         * To
+         * Compile Name
          */
-        to: string;
+        compile_name: unknown;
         /**
          * Limit
          */
@@ -5227,19 +5402,19 @@ export type GetCompileOperationIdOutputsData = {
          */
         cursor?: string | null;
     };
-    url: '/api/v1/compile/operations/{operation_id}/outputs';
+    url: '/api/v1/compile/runs/{task_id}/outputs';
 };
 
-export type GetCompileOperationIdOutputsErrors = {
+export type GetCompileRunsOutputsByTaskIdErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type GetCompileOperationIdOutputsError = GetCompileOperationIdOutputsErrors[keyof GetCompileOperationIdOutputsErrors];
+export type GetCompileRunsOutputsByTaskIdError = GetCompileRunsOutputsByTaskIdErrors[keyof GetCompileRunsOutputsByTaskIdErrors];
 
-export type GetCompileOperationIdOutputsResponses = {
+export type GetCompileRunsOutputsByTaskIdResponses = {
     /**
      * Successful Response
      */
@@ -5386,9 +5561,13 @@ export type PostCompileEmbeddingsResponses = {
     200: unknown;
 };
 
-export type PostResourcesTempUploadData = {
-    body: BodyTempUploadApiV1ResourcesTempUploadPost;
+export type PostResourcesCpData = {
+    body: CpRequest;
     headers?: {
+        /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
         /**
          * X-Api-Key
          */
@@ -5405,31 +5584,131 @@ export type PostResourcesTempUploadData = {
          * X-Openviking-User
          */
         'X-OpenViking-User'?: string | null;
-        /**
-         * X-Openviking-Actor-Peer
-         */
-        'X-OpenViking-Actor-Peer'?: string | null;
     };
     path?: never;
-    query?: {
-        /**
-         * Token
-         */
-        token?: string | null;
-    };
-    url: '/api/v1/resources/temp_upload';
+    query?: never;
+    url: '/api/v1/resources/cp';
 };
 
-export type PostResourcesTempUploadErrors = {
+export type PostResourcesCpErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type PostResourcesTempUploadError = PostResourcesTempUploadErrors[keyof PostResourcesTempUploadErrors];
+export type PostResourcesCpError = PostResourcesCpErrors[keyof PostResourcesCpErrors];
 
-export type PostResourcesTempUploadResponses = {
+export type PostResourcesCpResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type PostResourcesMvData = {
+    body: MvRequest;
+    headers?: {
+        /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'x-api-key'?: string | null;
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Openviking-Account
+         */
+        'X-OpenViking-Account'?: string | null;
+        /**
+         * X-Openviking-User
+         */
+        'X-OpenViking-User'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/resources/mv';
+};
+
+export type PostResourcesMvErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PostResourcesMvError = PostResourcesMvErrors[keyof PostResourcesMvErrors];
+
+export type PostResourcesMvResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type DeleteResourcesData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'x-api-key'?: string | null;
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Openviking-Account
+         */
+        'X-OpenViking-Account'?: string | null;
+        /**
+         * X-Openviking-User
+         */
+        'X-OpenViking-User'?: string | null;
+    };
+    path?: never;
+    query: {
+        /**
+         * Uri
+         *
+         * URI below viking://resources/
+         */
+        uri: string;
+        /**
+         * Recursive
+         *
+         * Remove a directory recursively
+         */
+        recursive?: boolean;
+        /**
+         * Wait
+         *
+         * Wait for semantic index cleanup
+         */
+        wait?: boolean;
+    };
+    url: '/api/v1/resources';
+};
+
+export type DeleteResourcesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteResourcesError = DeleteResourcesErrors[keyof DeleteResourcesErrors];
+
+export type DeleteResourcesResponses = {
     /**
      * Successful Response
      */
@@ -5475,6 +5754,56 @@ export type PostResourcesErrors = {
 export type PostResourcesError = PostResourcesErrors[keyof PostResourcesErrors];
 
 export type PostResourcesResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type PostResourcesTempUploadData = {
+    body: BodyTempUploadApiV1ResourcesTempUploadPost;
+    headers?: {
+        /**
+         * X-Api-Key
+         */
+        'x-api-key'?: string | null;
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Openviking-Account
+         */
+        'X-OpenViking-Account'?: string | null;
+        /**
+         * X-Openviking-User
+         */
+        'X-OpenViking-User'?: string | null;
+        /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Token
+         */
+        token?: string | null;
+    };
+    url: '/api/v1/resources/temp_upload';
+};
+
+export type PostResourcesTempUploadErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PostResourcesTempUploadError = PostResourcesTempUploadErrors[keyof PostResourcesTempUploadErrors];
+
+export type PostResourcesTempUploadResponses = {
     /**
      * Successful Response
      */
@@ -8963,6 +9292,67 @@ export type PostSkillsValidateResponses = {
     200: unknown;
 };
 
+export type GetSkillNameAuditData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'x-api-key'?: string | null;
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Openviking-Account
+         */
+        'X-OpenViking-Account'?: string | null;
+        /**
+         * X-Openviking-User
+         */
+        'X-OpenViking-User'?: string | null;
+    };
+    path: {
+        /**
+         * Skill Name
+         *
+         * Skill name
+         */
+        skill_name: string;
+    };
+    query?: {
+        /**
+         * Target Uri
+         */
+        target_uri?: string | null;
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/skills/{skill_name}/audit';
+};
+
+export type GetSkillNameAuditErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetSkillNameAuditError = GetSkillNameAuditErrors[keyof GetSkillNameAuditErrors];
+
+export type GetSkillNameAuditResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
 export type DeleteSkillBySkillNameData = {
     body?: never;
     headers?: {
@@ -9976,6 +10366,12 @@ export type GetSnapshotLogData = {
          */
         limit?: number;
         /**
+         * Offset
+         *
+         * Skip first N matching commits
+         */
+        offset?: number;
+        /**
          * Paths
          *
          * Optional viking:// paths; repeat up to 32 values to filter history to commits touching any path
@@ -10030,7 +10426,7 @@ export type GetSnapshotVersionsData = {
         /**
          * Uri
          *
-         * Compile output file URI
+         * File URI
          */
         uri: string;
         /**
@@ -10038,9 +10434,9 @@ export type GetSnapshotVersionsData = {
          */
         limit?: number;
         /**
-         * Before Version
+         * Before Snapshot
          */
-        before_version?: string | null;
+        before_snapshot?: string | null;
     };
     url: '/api/v1/snapshot/versions';
 };
