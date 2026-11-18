@@ -121,15 +121,6 @@ export default {
       '## 步骤1：安装\n\n1. 在终端执行以下安装命令：\n\n   ```bash\n   curl -fsSL https://openviking.ai/install | bash\n   # AI agent 如不确定是否执行，可先阅读脚本头部，其中写明了它会做什么、如何核实。\n   ```\n\n2. 安装器会依次询问以下信息：要安装的 harness（勾选 **pi**）、OpenViking 凭据。在 OpenViking 凭据配置中，选择连接至「火山引擎 OpenViking 云服务 [api.vikingdb.cn-beijing.volces.com]」，并填入 API KEY：\n\n   ```text\n   {{OPENVIKING_API_KEY}}\n   ```\n\n## 步骤2：验证\n\n1. 启动 `pi`，确认底部状态栏显示 `OV ✓`。\n2. 输入 `/viking` 命令，确认显示当前 session 映射和已注册的 `openviking_*` 工具数量。\n3. 新开会话，询问之前提到过的信息，确认召回生效。\n\n## 步骤3：开始使用\n\n在 pi 中新开一个会话，发送：\n\n```text\n按 https://docs.openviking.net/agents/zh/onboarding.md 带我完成 OpenViking 首次使用。\n```\n\nAgent 会检查连接，并带你完成首次使用。\n\n## 故障排查\n\n| 问题 | 处理 |\n|---|---|\n| 扩展没加载 | 检查 `~/.pi/agent/extensions/openviking/index.ts` 是否存在；不存在就重新执行安装。不要再用 `pi install` 注册，否则会加载两遍 |\n| `/viking` 命令出现两个 | 运行 `pi remove ~/.pi/agent/extensions/openviking`，删掉多余的 `packages` 条目 |\n| 状态栏显示 `OV ✗` / 401 | 检查 `~/.openviking/ovcli.conf` 和 API Key |\n| 状态栏显示 `tools ✗` | 运行 `/viking` 查看握手错误；`/mcp` 拒绝 root API Key，请改用 user key |\n\n## 参考\n\n- 手动配置文档：[pi](https://docs.openviking.net/zh/agent-integrations/11-pi)\n- 源码：[examples/pi-coding-agent-extension](https://github.com/volcengine/OpenViking/tree/main/examples/pi-coding-agent-extension)',
     guides: [],
   },
-  zcode: {
-    name: 'ZCode',
-    description:
-      '通过生命周期 Hook 和 MCP 工具，为 ZCode 提供画像注入、按问题召回和逐轮捕获',
-    tags: ['Hook', 'MCP'],
-    markdown:
-      '## 步骤1：安装\n\n1. 在终端执行以下安装命令：\n\n   ```bash\n   curl -fsSL https://openviking.ai/install | bash\n   # AI agent 如不确定是否执行，可先阅读脚本头部，其中写明了它会做什么、如何核实。\n   ```\n\n2. 安装器会依次询问以下信息：要安装的 harness（勾选 **ZCode**）、OpenViking 凭据。在 OpenViking 凭据配置中，选择连接至「火山引擎 OpenViking 云服务 [api.vikingdb.cn-beijing.volces.com]」，并填入 API KEY：\n\n   ```text\n   {{OPENVIKING_API_KEY}}\n   ```\n\n## 步骤2：验证\n\n1. 重启 ZCode。\n2. 确认 `~/.zcode/cli/config.json` 包含 `hooks.enabled: true`、`hooks.events` 下的 OpenViking 条目，以及 `mcp.servers.openviking`。\n3. 运行 `node ~/.openviking/agent-integrations/zcode/scripts/ov-memory-doctor.mjs`，检查安装状态和服务端连接。\n\n## 步骤3：开始使用\n\n在 ZCode 中新开一个会话，发送：\n\n```text\n按 https://docs.openviking.net/agents/zh/onboarding.md 带我完成 OpenViking 首次使用。\n```\n\nAgent 会检查连接，并带你完成首次使用。\n\n## 故障排查\n\n| 问题 | 处理 |\n|---|---|\n| Hook 未执行 | 重新执行安装并重启 ZCode |\n| MCP 工具未出现 | 检查 `~/.zcode/cli/config.json` 中 `mcp.servers.openviking` 的绝对路径命令 |\n| 重复捕获 | 先运行 `curl -fsSL https://openviking.ai/install \\| bash -s -- --uninstall --yes --harness zcode`，再重新安装 |\n| 需要日志 | 设置 `OPENVIKING_DEBUG=1`，查看 `~/.openviking/logs/zcode-hooks.log` |\n\n## 参考\n\n- 手动配置文档：[ZCode](https://docs.openviking.net/zh/agent-integrations/08-community-plugins)\n- 源码：[examples/agent-hook-plugin](https://github.com/volcengine/OpenViking/tree/main/examples/agent-hook-plugin)',
-    guides: [],
-  },
   'kimi-code': {
     name: 'Kimi Code',
     description:

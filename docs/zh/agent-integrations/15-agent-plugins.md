@@ -75,7 +75,7 @@ Agent Plugins 1.0 只覆盖 skills 和 MCP servers；hooks、commands、agents �
 
 **如果你的 harness 支持 hooks 机制，推荐使用专属插件。** hook 驱动的召回与捕获不需要模型调用工具，也不依赖模型「想起来要记」。本 Agent Plugins 包适用于没有 hooks 的 harness，或你希望用同一个包覆盖多个客户端的场景。
 
-Claude Code、Codex、Cursor、TRAE / TRAE CN、ZCode、OpenCode、pi 共用同一个安装脚本。它会询问要安装的 harness 和 OpenViking 凭据，所有步骤幂等，重复运行安全：
+Claude Code、Codex、Cursor、TRAE / TRAE CN、OpenCode、pi 共用同一个安装脚本。它会询问要安装的 harness 和 OpenViking 凭据，所有步骤幂等，重复运行安全：
 
 ```bash
 curl -fsSL https://openviking.ai/install | bash
@@ -91,7 +91,6 @@ curl -fsSL https://openviking.ai/install | bash
 | TRAE / TRAE CN | [TRAE 记忆集成](./13-trae.md) |
 | pi | [pi Coding Agent 扩展](./11-pi.md) — 使用官方 MCP 客户端，把服务端工具注册为原生工具 |
 | OpenClaw | [OpenClaw 插件](./03-openclaw.md) — 独立安装流程 |
-| ZCode | [社区集成](./08-community-plugins.md) |
 
 按规范，客户端专属的集成后续也可以放进同一个包里 —— 使用反向域名命名的目录（如 `com.example.client/`）或清单的 `extensions` 字段 —— 且不会影响其他客户端。
 

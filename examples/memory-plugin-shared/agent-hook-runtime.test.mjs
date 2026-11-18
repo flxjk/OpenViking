@@ -231,10 +231,10 @@ test("filterCaptureTurns tolerates a missing or malformed turn list", () => {
 });
 
 /**
- * cursor, trae, trae-cn and zcode read the environment and nothing else before
+ * cursor, trae and trae-cn read the environment and nothing else before
  * this: an `ovcli.conf` `plugin` entry named after them was inert, and a
  * workspace file could not reach them at all. Assert the whole stack lands,
- * because none of these four has a config test of its own.
+ * because none of these three has a config test of its own.
  */
 test("the thin harnesses resolve the same layers as everyone else", () => {
   const dir = mkdtempSync(join(tmpdir(), "ov-agent-hook-config-"));
@@ -254,7 +254,6 @@ test("the thin harnesses resolve the same layers as everyone else", () => {
         captureFilters: ["d/secret/"],
         cursor: { captureMode: "keyword" },
         "trae-cn": { scoreThreshold: 0.8 },
-        zcode: { autoRecall: false },
       },
     }));
     process.env.OPENVIKING_CLI_CONFIG_FILE = join(dir, "ovcli.conf");
@@ -266,11 +265,10 @@ test("the thin harnesses resolve the same layers as everyone else", () => {
     assert.equal(cursor.recallLimit, 7, "the shared plugin section applies");
     assert.equal(cursor.captureMode, "keyword", "the per-harness override applies");
     assert.equal(cursor.autoRecall, true, "another harness's override does not");
-    assert.equal(loadAgentHookConfig("zcode", workspace).autoRecall, false);
     // The hyphenated spelling of a harness finds the same override.
     assert.equal(loadAgentHookConfig("trae-cn", workspace).scoreThreshold, 0.8);
     assert.equal(loadAgentHookConfig("trae", workspace).scoreThreshold, 0.35);
-    for (const clientId of ["cursor", "trae", "trae-cn", "zcode", "kimicode"]) {
+    for (const clientId of ["cursor", "trae", "trae-cn", "kimicode"]) {
       assert.deepEqual(loadAgentHookConfig(clientId, workspace).captureFilters, ["d/secret/"]);
     }
 

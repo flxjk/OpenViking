@@ -43,7 +43,9 @@
     {
       "id": "claude-code",
       "name": "Claude Code",
-      "tags": ["Plugin"],
+      "tags": [
+        "Plugin"
+      ],
       "logo": "https://docs.openviking.net/agents/image/claude-code/logo.png",
       "summary": "Adds long-term memory to Claude Code across projects and sessions. Install once; recall and capture run automatically.",
       "detailPath": "https://docs.openviking.net/agents/en/claude-code.md"
@@ -51,7 +53,9 @@
     {
       "id": "codex",
       "name": "Codex",
-      "tags": ["Plugin"],
+      "tags": [
+        "Plugin"
+      ],
       "logo": "https://lf3-static.bytednsdoc.com/obj/eden-cn/lm_sth/ljhwZthlaukjlkulzlp/agent_logo/codex.png",
       "summary": "Adds persistent cross-session memory to Codex through lifecycle hooks and the OpenViking MCP endpoint.",
       "detailPath": "https://docs.openviking.net/agents/en/codex.md"
@@ -59,7 +63,9 @@
     {
       "id": "doubao-work",
       "name": "Doubao Work",
-      "tags": ["MCP"],
+      "tags": [
+        "MCP"
+      ],
       "logo": "https://docs.openviking.net/agents/image/doubao-work/logo.png",
       "summary": "Connect through the built-in connector to give Doubao Work persistent context memory, with automatic recall and capture during conversations.",
       "detailPath": "https://docs.openviking.net/agents/en/doubao-work.md"
@@ -67,7 +73,9 @@
     {
       "id": "workbuddy",
       "name": "WorkBuddy",
-      "tags": ["MCP"],
+      "tags": [
+        "MCP"
+      ],
       "logo": "https://docs.openviking.net/agents/image/workbuddy/logo.png",
       "summary": "Use MCP tools in WorkBuddy for memory recall and storage, knowledge resource management, and code context retrieval.",
       "detailPath": "https://docs.openviking.net/agents/en/workbuddy.md"
@@ -75,7 +83,10 @@
     {
       "id": "trae",
       "name": "TRAE",
-      "tags": ["Hook", "MCP"],
+      "tags": [
+        "Hook",
+        "MCP"
+      ],
       "logo": "https://docs.openviking.net/agents/image/trae/logo.png",
       "summary": "Add automatic prompt recall and turn capture to TRAE and TRAE CN through native hooks plus MCP tools.",
       "detailPath": "https://docs.openviking.net/agents/en/trae.md"
@@ -83,7 +94,10 @@
     {
       "id": "cursor",
       "name": "Cursor",
-      "tags": ["Plugin", "Memory"],
+      "tags": [
+        "Plugin",
+        "Memory"
+      ],
       "logo": "https://docs.openviking.net/agents/image/cursor/logo.png",
       "summary": "One command installs Cursor lifecycle hooks, MCP tools, rules, and skills for automatic memory recall and capture.",
       "detailPath": "https://docs.openviking.net/agents/en/cursor.md"
@@ -91,7 +105,9 @@
     {
       "id": "openclaw",
       "name": "OpenClaw",
-      "tags": ["Plugin"],
+      "tags": [
+        "Plugin"
+      ],
       "logo": "https://lf3-static.bytednsdoc.com/obj/eden-cn/lm_sth/ljhwZthlaukjlkulzlp/agent_logo/OpenClaw.png",
       "summary": "Plugin integration for OpenClaw as a context engine, with cross-agent memory and one-command setup through the npm helper.",
       "detailPath": "https://docs.openviking.net/agents/en/openclaw.md"
@@ -99,7 +115,9 @@
     {
       "id": "hermes",
       "name": "Hermes Agent",
-      "tags": ["Provider"],
+      "tags": [
+        "Provider"
+      ],
       "logo": "https://lf3-static.bytednsdoc.com/obj/eden-cn/lm_sth/ljhwZthlaukjlkulzlp/agent_logo/Hermes-Agent.png",
       "summary": "Long-term memory for Hermes with automatic capture and recall. Connect to OpenViking Service or your own server, or use Quick Local with the external plugin.",
       "detailPath": "https://docs.openviking.net/agents/en/hermes.md"
@@ -107,7 +125,9 @@
     {
       "id": "opencode",
       "name": "OpenCode",
-      "tags": ["Plugin"],
+      "tags": [
+        "Plugin"
+      ],
       "logo": "https://docs.openviking.net/agents/image/opencode/logo.png",
       "summary": "Provides one unified OpenCode plugin for repository context, memory tools, session sync, and automatic recall.",
       "detailPath": "https://docs.openviking.net/agents/en/opencode.md"
@@ -115,7 +135,9 @@
     {
       "id": "deepseek-harness",
       "name": "DeepSeek Harness",
-      "tags": ["Plugin"],
+      "tags": [
+        "Plugin"
+      ],
       "logo": "https://docs.openviking.net/agents/image/deepseek-harness/logo.png",
       "summary": "Give DeepSeek Harness long-term memory across projects and sessions, with automatic recall, capture, OpenViking tools, and the openviking-memory skill.",
       "detailPath": "https://docs.openviking.net/agents/en/deepseek-harness.md"
@@ -123,7 +145,10 @@
     {
       "id": "deerflow",
       "name": "DeerFlow",
-      "tags": ["MemoryManager", "MCP"],
+      "tags": [
+        "MemoryManager",
+        "MCP"
+      ],
       "logo": "https://docs.openviking.net/agents/image/deerflow/logo.png",
       "summary": "DeerFlow can connect through MemoryManager and MCP to automatically write, recall, inject, and manage memory. Enable both methods for the full memory experience.",
       "detailPath": "https://docs.openviking.net/agents/en/deerflow-memory-manager.md",
@@ -143,23 +168,19 @@
     {
       "id": "pi",
       "name": "pi",
-      "tags": ["Plugin"],
+      "tags": [
+        "Plugin"
+      ],
       "logo": "https://docs.openviking.net/agents/image/pi/logo.png",
       "summary": "Give pi cross-session long-term memory with automatic recall, turn capture, and context takeover; the server's MCP tools are registered as native pi tools.",
       "detailPath": "https://docs.openviking.net/agents/en/pi.md"
     },
     {
-      "id": "zcode",
-      "name": "ZCode",
-      "tags": ["Hook", "MCP"],
-      "logo": "https://docs.openviking.net/agents/image/zcode/logo.png",
-      "summary": "Add automatic profile injection, prompt recall, and turn capture to ZCode through lifecycle hooks plus MCP tools.",
-      "detailPath": "https://docs.openviking.net/agents/en/zcode.md"
-    },
-    {
       "id": "kimi-code",
       "name": "Kimi Code",
-      "tags": ["Plugin"],
+      "tags": [
+        "Plugin"
+      ],
       "logo": "https://docs.openviking.net/agents/image/kimi-code/logo.png",
       "summary": "A native Kimi Code plugin for automatic memory recall and turn capture, with OpenViking MCP tools.",
       "detailPath": "https://docs.openviking.net/agents/en/kimi-code.md"

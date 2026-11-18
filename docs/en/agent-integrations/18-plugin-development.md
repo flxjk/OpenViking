@@ -42,7 +42,7 @@ The requirements are:
 1. **One authoritative implementation per behavior.** Shared modules own rules; adapters supply host facts. Do not copy a slightly different version of a rule into an adapter.
 2. **Reuse must happen in the execution path.** Call `buildPluginConfig()`, `buildRecallBlockDetailed()`, or the shared sender. Copied files, identically named exports, and agreements to keep implementations aligned do not prevent divergence.
 3. **Derive lists when possible.** Configuration keys, diagnostic keys, and workspace mappings come from the schema; runtime files come from the import closure; required archive contents come from entrypoints and manifests.
-4. **Preserve real differences.** Claude Code's subagent events, Codex's exit recovery, and ZCode's strict output format each have a reason. Share common capabilities without forcing identical lifecycles.
+4. **Preserve real differences.** Claude Code's subagent events and Codex's exit recovery each have a reason. Share common capabilities without forcing identical lifecycles.
 5. **Distribution determines when files are generated.** A host that loads a repository directory needs that directory to be complete. A host that installs a built artifact needs dependencies generated before packaging. Keep installations complete and commit only the generated files that distribution requires.
 6. **Every abstraction should reduce maintenance points.** A new interface should let a future fix touch fewer places. Reconsider it if it only adds forwarding layers, boolean options, or another configuration table.
 
@@ -123,7 +123,7 @@ Thin means owning only host differences; it is not a line-count limit. For examp
 
 For a new thin host, prefer the existing [`HOSTS`](https://github.com/volcengine/OpenViking/blob/main/examples/agent-hook-plugin/hosts/index.mjs) registry and dispatcher interfaces: `stages`, `envelope`, `prompt`, `normalizeInput`, `capture`, and `guard`. Before adding an interface, identify the host fact that cannot be expressed. Do not design an adapter DSL for every hypothetical future agent.
 
-The existing `hosts/cursor.mjs`, `hosts/trae.mjs`, and `hosts/zcode.mjs` demonstrate the separation: event mappings are data, message conversion fits pure functions, and asynchronous capture needs explicit callbacks. Do not combine them into a configuration-object builder that also performs network requests.
+The existing `hosts/cursor.mjs` and `hosts/trae.mjs` demonstrate the separation: event mappings are data, message conversion fits pure functions, and asynchronous capture needs explicit callbacks. Do not combine them into a configuration-object builder that also performs network requests.
 
 ## 4. Configuration, credentials, and identity
 
@@ -195,7 +195,7 @@ A persistent MCP proxy cannot infer the active project from its startup cwd. Use
 | Subagents | Preserve identity and parent relationships without duplicates | `SubagentStart`, `SubagentStop` | Neither event is registered in the current hook manifest |
 | Local tool checks | Deny a file tool whose path is a virtual URI; attach a notice to a shell command that carries one | `PreToolUse` URI guard on Read, Glob, Grep, Edit, Write, and Bash | Not registered: Codex records `PreToolUse` context as a developer message between a tool call and its output, which some Responses servers reject; file edits go through `apply_patch`, which has no path argument |
 
-Use [Claude Code hooks.json](https://github.com/volcengine/OpenViking/blob/main/examples/claude-code-memory-plugin/hooks/hooks.json) and [Codex hooks.json](https://github.com/volcengine/OpenViking/blob/main/examples/codex-memory-plugin/hooks/hooks.json) as the event registration references. Identical event names do not guarantee identical payloads or outputs. A host without an end event must choose and document an alternative commit point, such as ZCode's Stop commits, rather than register an unreachable SessionEnd handler.
+Use [Claude Code hooks.json](https://github.com/volcengine/OpenViking/blob/main/examples/claude-code-memory-plugin/hooks/hooks.json) and [Codex hooks.json](https://github.com/volcengine/OpenViking/blob/main/examples/codex-memory-plugin/hooks/hooks.json) as the event registration references. Identical event names do not guarantee identical payloads or outputs. A host without an end event must choose and document an alternative commit point, such as committing on every Stop, rather than register an unreachable SessionEnd handler.
 
 ### 5.2 Hook entrypoint responsibilities
 
@@ -326,7 +326,7 @@ Use explicit relative imports. Where shared modules have TypeScript consumers, k
 | --- | --- | --- |
 | Host loads a plugin directory directly from Git | Claude Code, Codex, `agent-plugins`, OpenClaw (`ov-install` GitHub source) | Commit shared copies so a checkout is loadable |
 | npm package or installation archive | OpenCode, DSH, Pi | Generate during prepack or staging; do not commit runtime copies |
-| Installer assembles an adjacent runtime directory | Cursor, TRAE, TRAE CN, ZCode | Derive `lib/MANIFEST` from `ASSEMBLED_ROOTS` and copy runtime modules from it |
+| Installer assembles an adjacent runtime directory | Cursor, TRAE, TRAE CN | Derive `lib/MANIFEST` from `ASSEMBLED_ROOTS` and copy runtime modules from it |
 
 Register these targets in [`sync.mjs`](https://github.com/volcengine/OpenViking/blob/main/examples/memory-plugin-shared/sync.mjs). For separate plugins, add the source root, output directory, and `committed` policy to `TARGETS`. Extend `ASSEMBLED_ROOTS` only for a new assembled root; ordinary thin hosts are usually covered already. Register skill delivery separately in `SKILL_TARGETS`. Do not maintain a manual list of runtime modules to copy.
 
@@ -499,5 +499,5 @@ Choose an entrypoint by the problem, instead of starting from generated plugin c
 - Configuration, peers, and generation strategy: [Memory Plugin Shared README](https://github.com/volcengine/OpenViking/blob/main/examples/memory-plugin-shared/README.md).
 - Claude Code event wiring: [hooks.json](https://github.com/volcengine/OpenViking/blob/main/examples/claude-code-memory-plugin/hooks/hooks.json); recall adaptation: [auto-recall.mjs](https://github.com/volcengine/OpenViking/blob/main/examples/claude-code-memory-plugin/scripts/auto-recall.mjs).
 - Codex commits, abnormal exits, and recovery: [DESIGN.md](https://github.com/volcengine/OpenViking/blob/main/examples/codex-memory-plugin/DESIGN.md); implementation: [session-end.mjs](https://github.com/volcengine/OpenViking/blob/main/examples/codex-memory-plugin/scripts/session-end.mjs).
-- New configuration-file hosts: [agent-hook-plugin README](https://github.com/volcengine/OpenViking/blob/main/examples/agent-hook-plugin/README.md); strict protocol example: [ZCode DESIGN](https://github.com/volcengine/OpenViking/blob/main/examples/agent-hook-plugin/DESIGN.md).
+- New configuration-file hosts: [agent-hook-plugin README](https://github.com/volcengine/OpenViking/blob/main/examples/agent-hook-plugin/README.md); implementation: [hosts/index.mjs](https://github.com/volcengine/OpenViking/blob/main/examples/agent-hook-plugin/hosts/index.mjs).
 - CI and delivery checks: [pr.yml](https://github.com/volcengine/OpenViking/blob/main/.github/workflows/pr.yml), [sync.mjs](https://github.com/volcengine/OpenViking/blob/main/examples/memory-plugin-shared/sync.mjs), [marketplace archive checker](https://github.com/volcengine/OpenViking/blob/main/.github/scripts/check-marketplace-archive.mjs).

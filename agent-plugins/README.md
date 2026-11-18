@@ -58,7 +58,7 @@ Config file changes are picked up by the running proxy without a restart. Debugg
 
 This package is the portable recall + write surface: skills plus MCP tools, driven by the model. Agent Plugins 1.0 deliberately excludes hooks, commands, and agents, so **automatic conversation capture and automatic pre-prompt recall are out of scope here** — the `skills/openviking-memory` skill instead teaches the model to recall at task start and persist durable facts via `remember`/`write` itself.
 
-**If your harness has a hook system, prefer the dedicated plugin** — hook-driven recall and capture cost no tool calls and don't depend on the model choosing to remember. One installer covers Claude Code, Codex, Cursor, TRAE / TRAE CN, ZCode, OpenCode, and pi; it prompts for harnesses and credentials, and is idempotent:
+**If your harness has a hook system, prefer the dedicated plugin** — hook-driven recall and capture cost no tool calls and don't depend on the model choosing to remember. One installer covers Claude Code, Codex, Cursor, TRAE / TRAE CN, OpenCode, and pi; it prompts for harnesses and credentials, and is idempotent:
 
 ```bash
 curl -fsSL https://openviking.ai/install | bash
@@ -68,7 +68,7 @@ curl -fsSL https://openviking.ai/install | bash
 - [claude-code-memory-plugin](../examples/claude-code-memory-plugin/) (Claude Code)
 - [codex-memory-plugin](../examples/codex-memory-plugin/) (Codex)
 - [opencode-plugin](../examples/opencode-plugin/) (OpenCode)
-- [agent-hook-plugin](../examples/agent-hook-plugin/) (Cursor, TRAE, TRAE CN, ZCode), ...
+- [agent-hook-plugin](../examples/agent-hook-plugin/) (Cursor, TRAE, TRAE CN), ...
 
 Use this Agent Plugins package for harnesses with no hooks, or when you want one package that loads across many clients.
 

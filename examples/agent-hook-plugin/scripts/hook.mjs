@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * The one hook entry cursor, TRAE and ZCode all run.
+ * The one hook entry cursor and TRAE all run.
  *
  * Each host names it from its own hooks.json, passing the event and the client
  * id as arguments; the adapter under `hosts/` supplies everything that differs
@@ -32,7 +32,7 @@ import { withRequestBudget } from "./request-budget.mjs";
 
 const HOOK_FINISH_RESERVE_MS = 100;
 
-// ZCode's detached writer re-enters this file with no arguments at all, so what
+// A detached writer re-enters this file with no arguments at all, so what
 // the first run put in the environment is what tells the worker what it is.
 const event = process.argv[2] || process.env.OPENVIKING_HOOK_EVENT || "";
 const clientId = process.argv[3] || process.env.OPENVIKING_HOOK_SOURCE || "";

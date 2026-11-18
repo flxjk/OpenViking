@@ -2,46 +2,6 @@
 
 Community-maintained integrations for various agent runtimes. Each differs in target platform, integration depth, and maintenance status — check the linked README before adopting.
 
-## ZCode memory integration
-
-Source: [examples/agent-hook-plugin](https://github.com/volcengine/OpenViking/tree/main/examples/agent-hook-plugin)
-
-The ZCode community integration adds cross-project, cross-session memory through config-driven lifecycle hooks and an OpenViking MCP server:
-
-- **SessionStart** injects the user profile.
-- **UserPromptSubmit** recalls relevant memories.
-- **PreToolUse** redirects direct `viking://` reads to MCP tools.
-- **Stop** captures unseen rollout turns in a detached worker, then commits the OpenViking session.
-
-ZCode does not expose `PreCompact`, `SessionEnd`, or subagent lifecycle hooks. The adapter therefore commits on `Stop`, uses ZCode rollout files as the authoritative incremental transcript, and falls back to hook stdin only when no rollout file is available.
-
-### Install
-
-Prerequisites: Node.js 18+, a running OpenViking server, and ZCode.
-
-```bash
-curl -fsSL https://openviking.ai/install | bash
-# AI agents: not sure about running this? The script's header says what it does and how to verify it.
-```
-
-The installer detects `~/.zcode/` or the `zcode` binary, installs the runtime under `~/.openviking/agent-integrations/zcode/`, and merges hooks and MCP configuration into `~/.zcode/cli/config.json`.
-
-After restarting ZCode, verify that:
-
-- `~/.zcode/cli/config.json` contains `hooks.enabled: true`, OpenViking entries under `hooks.events`, and `mcp.servers.openviking`.
-- `OPENVIKING_DEBUG=1` produces diagnostics in `~/.openviking/logs/zcode-hooks.log`.
-
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| Hooks not firing | Hook configuration is disabled or stale | Re-run the installer and restart ZCode |
-| Recall returns nothing | OpenViking is unavailable or has not extracted memories yet | Check `curl http://127.0.0.1:1933/health` and wait for extraction |
-| MCP tools not appearing | The MCP proxy failed to start | Check the absolute `mcp.servers.openviking` command in `~/.zcode/cli/config.json` |
-| Duplicate captures | An older installation left duplicate hook entries | Run `curl -fsSL https://openviking.ai/install \| bash -s -- --uninstall --yes --harness zcode`, then reinstall |
-
-Implementation details and currently verified ZCode assumptions are documented in the plugin's [README](https://github.com/volcengine/OpenViking/tree/main/examples/agent-hook-plugin) and [DESIGN.md](https://github.com/volcengine/OpenViking/blob/main/examples/agent-hook-plugin/DESIGN.md).
-
-Once installed, start a new ZCode session and ask it to follow https://docs.openviking.ai/agents/en/onboarding.md. It checks the connection and walks you through the first use; see [One-click setup](../getting-started/07-agent-onboarding.md).
-
 ## Kimi Code memory integration
 
 Source: [examples/agent-hook-plugin](https://github.com/volcengine/OpenViking/tree/main/examples/agent-hook-plugin)

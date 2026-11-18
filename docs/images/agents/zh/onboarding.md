@@ -359,7 +359,6 @@ ov add-resource ./docs/design.md --parent-auto-create viking://user/<user_id>/re
 | TraeCode CLI 2.0 | `trae-cli` | **退出前先信任 hooks**：在会话里输入 `/hooks`，信任 OpenViking 的全部 hooks。然后退出，重新运行 `trae-cli`（或 `traecli`）；仍出现「Hooks need review」时选 **Trust all and continue** | 开新会话 | 回答后有一行 OV-Usage，与 Codex 相同 | 转成 JSONL；会话在 `~/.trae/cli/sessions/`，和 Codex 相同的 rollout 格式 | 未确认 |
 | Cursor | `cursor` | 完全退出 Cursor 后重新打开 | 开新会话（**+**），不要在恢复出来的安装对话里继续 | 设置 → Hooks 里的 OpenViking hook；设置 → Tools & MCPs 里 `openviking` 显示已连接 | 转成 JSONL；会话位置未确认 | Cursor 设置里的 User Rules，请用户粘贴 |
 | TRAE / TRAE CN | `trae` / `trae-cn` | 完全退出应用后重新打开；无需批准 hook | 开新会话 | MCP 设置里 `openviking` 显示已连接 | 转成 JSONL；会话位置未确认 | 应用设置里的个人规则，请用户粘贴 |
-| ZCode | `zcode` | 重启 ZCode | 开新会话 | 无文档说明 | 转成 JSONL；会话位置未确认 | 应用设置里的个人规则，请用户粘贴 |
 | Kimi Code | `kimicode` | 退出 Kimi Code；不要用 `/reload` | 开新会话，不要恢复当前会话 | 无文档说明 | 转成 JSONL；会话在 `~/.kimi-code/sessions/`（设置了 `$KIMI_CODE_HOME` 时在该目录下） | `~/.kimi-code/AGENTS.md`（同上） |
 | OpenCode | `opencode` | 重启 OpenCode | 开新会话 | 无文档说明 | 转成 JSONL；会话在 SQLite 库 `~/.local/share/opencode/opencode.db` | `~/.config/opencode/AGENTS.md` |
 | pi | `pi` | 重启 pi | 开新会话 | 底栏显示 `OV ✓`；`/viking` 查看状态 | 转成 JSONL；会话在 `~/.pi/agent/sessions/*/*.jsonl` | `~/.pi/agent/AGENTS.md` |

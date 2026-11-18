@@ -3,7 +3,7 @@
 /**
  * Client-side diagnostics for the config-driven hook hosts.
  *
- * Cursor, TRAE, TRAE CN and ZCode are installed by writing into the host's own
+ * Cursor, TRAE and TRAE CN are installed by writing into the host's own
  * configuration files rather than through a plugin marketplace, so what can go
  * wrong is different from Claude Code's and Codex's: the host config may have
  * lost the OpenViking entries, the assembled runtime beside the integration may
@@ -47,11 +47,10 @@ const REQUIRED_PLUGIN_FILES = ["plugin.json", "scripts/hook.mjs", "scripts/uri-g
 /**
  * Where each client keeps the two things the installer writes.
  *
- * ZCode reads both out of one config file; the rest keep hooks and MCP apart,
- * and TRAE's MCP path is the editor's platform-specific user directory. No
- * client names timeout budgets: each hook's requests share one deadline its
- * host adapter sets inside the hook's timeout, so no knob can make one outlive
- * it.
+ * Hooks and MCP live apart for every client, and TRAE's MCP path is the
+ * editor's platform-specific user directory. No client names timeout budgets:
+ * each hook's requests share one deadline its host adapter sets inside the
+ * hook's timeout, so no knob can make one outlive it.
  */
 const CLIENTS = {
   cursor: {
@@ -80,12 +79,6 @@ const CLIENTS = {
     mcp: () => (process.platform === "darwin"
       ? join(homedir(), "Library", "Application Support", "Trae CN", "User", "mcp.json")
       : join(homedir(), ".trae-cn", "mcp.json")),
-  },
-  zcode: {
-    cliName: "zcode",
-    launcherHint: "ZCode",
-    hooks: () => join(homedir(), ".zcode", "cli", "config.json"),
-    mcp: () => join(homedir(), ".zcode", "cli", "config.json"),
   },
 };
 
@@ -142,7 +135,6 @@ function checkInstall(report) {
     else {
       report.ok(`hooks in ${homeShort(hooksPath)}: ${events.join(", ")}`);
       if (!text.includes("scripts/hook.mjs")) report.warn("the installed hook commands do not name scripts/hook.mjs", "they were written by an older installer", "re-run the installer");
-      if (CLIENT === "zcode" && hooks.data.hooks?.enabled !== true) report.fail("ZCode's hook runner is off", "config.json has hooks.enabled != true, so no hook fires", "re-run the installer, or set hooks.enabled = true");
     }
     for (const command of String(text).match(/'([^']*\.mjs)'/gu) || []) {
       const script = command.slice(1, -1);

@@ -17,7 +17,7 @@
    | OpenCode | `opencode` | SQLite 库 `~/.local/share/opencode/opencode.db`，没有 `sqlite3` 时可用 Node 22 的 `node:sqlite` 只读打开；`synthetic` 的文本是注入内容，`parent_id` 非空的是子代理会话 |
    | pi | `pi` | `~/.pi/agent/sessions/*/*.jsonl`，每个文件第一行 `{"type":"session"}` 带 id 和 cwd |
    | DeepSeek Harness | `dsh` | `~/.dsh/sessions/` |
-   | Cursor、TRAE、TRAE CN、ZCode | `cursor`、`trae`、`trae-cn`、`zcode` | 未确认 |
+   | Cursor、TRAE、TRAE CN | `cursor`、`trae`、`trae-cn` | 未确认 |
 
 3. 在 `<tmp>` 下写一个小转换脚本，把会话写进 `<tmp>/ov-sessions.jsonl`，每行一个会话：
 

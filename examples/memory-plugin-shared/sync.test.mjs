@@ -96,7 +96,7 @@ test("the portable agent-plugins bundle stays connection-only", async () => {
 test("every shared module is reachable from some plugin", async () => {
   const targets = await resolveTargets();
   const claimed = new Set(targets.flatMap((target) => target.files));
-  // cursor, trae and zcode vendor nothing: the installer assembles their
+  // cursor, trae and trae-cn vendor nothing: the installer assembles their
   // runtime instead, so they claim through the manifest it reads.
   for (const entry of await assembledClosure()) claimed.add(entry);
   const files = (await readdir(SHARED_DIR)).filter((file) => file.endsWith(".mjs")).sort();

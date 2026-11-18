@@ -111,7 +111,7 @@ TOS 发布桶仍会随每次发版收到同样的文件，供仍指向它的安�
 
 回滚时运行 `gh workflow run release-tos.yml -f tag=<上一个正常的 tag> -f update_latest=true`。workflow 定义取自默认分支，但它调用的脚本来自 tag 的 checkout，所以只能重新发布已经包含当前发布脚本的 tag；要退回更早的插件代码，按热修复流程发布。
 
-两种操作完成后，Claude Code（URL marketplace）在下次检查更新时生效，版本号变低也算更新。Codex 在下次启动时生效，TraeCode CLI 在执行 `trae-cli plugin marketplace upgrade` 时生效。Cursor、TRAE、TRAE CN、ZCode、Kimi Code、OpenCode、pi，以及使用本地目录 marketplace 的 Claude Code，需要重新运行安装器才会变化。dsh 从 npm 安装，不受影响。
+两种操作完成后，Claude Code（URL marketplace）在下次检查更新时生效，版本号变低也算更新。Codex 在下次启动时生效，TraeCode CLI 在执行 `trae-cli plugin marketplace upgrade` 时生效。Cursor、TRAE、TRAE CN、Kimi Code、OpenCode、pi，以及使用本地目录 marketplace 的 Claude Code，需要重新运行安装器才会变化。dsh 从 npm 安装，不受影响。
 
 ## Python SDK 发版流程
 

@@ -52,7 +52,7 @@ function config(port, env = {}) {
 
 test("every hook.mjs event has a request budget inside the timeout its hooks.json gives it", () => {
   for (const [client, hostDir] of [
-    ["cursor", "cursor"], ["trae", "trae"], ["trae-cn", "trae"], ["zcode", "zcode"],
+    ["cursor", "cursor"], ["trae", "trae"], ["trae-cn", "trae"],
     ["codebuddy", "codebuddy"], ["qoder", "qoder"],
   ]) {
     const { hooks } = JSON.parse(readFileSync(join(ROOT, "hosts", hostDir, "hooks.json"), "utf8"));

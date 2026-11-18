@@ -9,7 +9,6 @@ export const INSTALLER_HARNESSES: Partial<Record<string, string>> = {
   opencode: 'opencode',
   'deepseek-harness': 'dsh',
   pi: 'pi',
-  zcode: 'zcode',
   'kimi-code': 'kimicode',
 };
 

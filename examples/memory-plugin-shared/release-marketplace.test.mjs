@@ -222,8 +222,8 @@ test("a Claude-format wrapper sharing Claude Code's config keeps the URL marketp
   }
 });
 
-test("release marketplace archive supports ZCode and pi TOS installs", () => {
-  const tmp = mkdtempSync(join(tmpdir(), "openviking-zcode-release-"));
+test("release marketplace archive supports TRAE and pi TOS installs", () => {
+  const tmp = mkdtempSync(join(tmpdir(), "openviking-trae-release-"));
   try {
     const stage = join(tmp, "memory-plugin-marketplace");
     const staged = run("bash", [stageScript, stage]);
@@ -243,7 +243,7 @@ test("release marketplace archive supports ZCode and pi TOS installs", () => {
     mkdirSync(home, { recursive: true });
     const installed = run("bash", [
       installer,
-      "--harness", "zcode",
+      "--harness", "trae",
       "--dist", "tos",
       "--source", "archive",
       "--lang", "en",
@@ -262,38 +262,31 @@ test("release marketplace archive supports ZCode and pi TOS installs", () => {
     });
     assert.equal(installed.status, 0, `${installed.stdout}\n${installed.stderr}`);
 
-    const integrationRoot = join(home, ".openviking", "agent-integrations", "zcode");
+    const integrationRoot = join(home, ".openviking", "agent-integrations", "trae");
     assert.ok(existsSync(join(integrationRoot, "plugin.json")));
     assert.equal(existsSync(join(integrationRoot, ".claude-plugin")), false);
     assert.ok(existsSync(join(integrationRoot, "scripts", "hook.mjs")));
-    assert.ok(existsSync(join(integrationRoot, "hosts", "zcode.mjs")));
-    assert.ok(existsSync(join(integrationRoot, "hosts", "zcode-capture.mjs")));
+    assert.ok(existsSync(join(integrationRoot, "hosts", "trae.mjs")));
+    assert.ok(existsSync(join(integrationRoot, "hosts", "trae-turns.mjs")));
     // An installation is for one client: the other hosts' configuration
     // directories are not copied with it.
-    assert.equal(existsSync(join(integrationRoot, "hosts", "zcode", "hooks.json")), true);
+    assert.equal(existsSync(join(integrationRoot, "hosts", "trae", "hooks.json")), true);
     assert.equal(existsSync(join(integrationRoot, "hosts", "cursor")), false);
-    // ZCode imports the runtime the installer assembles beside it, the way
-    // cursor and trae do, rather than a copy committed into its own tree.
+    // TRAE imports the runtime the installer assembles beside it, the way
+    // cursor does, rather than a copy committed into its own tree.
     const sharedRoot = join(home, ".openviking", "agent-integrations", "memory-plugin-shared", "lib");
     assert.ok(existsSync(join(sharedRoot, "async-writer.mjs")));
     assert.ok(existsSync(join(sharedRoot, "capture-utils.mjs")));
     assert.ok(existsSync(join(sharedRoot, "mcp-proxy-config.mjs")));
     assert.equal(existsSync(join(integrationRoot, "scripts", "shared")), false);
 
-    const config = JSON.parse(readFileSync(join(home, ".zcode", "cli", "config.json"), "utf8"));
-    assert.equal(config.hooks.enabled, true);
-    assert.deepEqual(Object.keys(config.hooks.events), [
-      "SessionStart",
-      "UserPromptSubmit",
-      "PreToolUse",
-      "Stop",
-    ]);
-    assert.ok(config.mcp.servers.openviking);
+    const config = JSON.parse(readFileSync(join(home, ".trae", "hooks.json"), "utf8"));
+    assert.ok(config.hooks.SessionStart);
 
     // The hook commands point across the plugin boundary at the runtime the
     // installer assembles from the archive, so an entry the manifest forgot to
     // carry is a hooks.json naming a script that is not there.
-    const commands = JSON.stringify(config.hooks.events)
+    const commands = JSON.stringify(config.hooks)
       .split(/"/u)
       .filter((part) => part.includes("# openviking-memory"));
     assert.ok(commands.length > 0, "no OpenViking hook commands were installed");
@@ -526,7 +519,7 @@ test("the docs download tree holds what the installer fetches, under the address
     assert.equal(channels.schema, 1);
     assert.deepEqual(Object.keys(channels.harnesses).sort(), [
       "antigravity", "claude", "codebuddy", "codex", "cursor", "dsh", "kimicode", "opencode", "pi", "qoder", "trae", "trae-cli",
-      "trae-cn", "zcode",
+      "trae-cn",
     ]);
     assert.deepEqual(channels.harnesses.codex, {
       version,

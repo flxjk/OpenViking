@@ -17,7 +17,6 @@ const agentIds = [
   'deepseek-harness',
   'deerflow',
   'pi',
-  'zcode',
   'kimi-code',
 ];
 const methodIds = ['mcp', 'cli', 'api', 'sdk'];

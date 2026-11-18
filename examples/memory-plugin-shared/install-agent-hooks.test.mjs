@@ -56,7 +56,7 @@ function runInstaller(home, args, extraEnv = {}, script = installer) {
   });
 }
 
-function runInstall(home, harnesses = "cursor,trae,trae-cn,zcode") {
+function runInstall(home, harnesses = "cursor,trae,trae-cn") {
   const result = runInstaller(home, [
     "--harness", harnesses,
     "--source", "dev",
@@ -68,7 +68,7 @@ function runInstall(home, harnesses = "cursor,trae,trae-cn,zcode") {
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
 }
 
-function runUninstall(home, harnesses = "cursor,trae,trae-cn,zcode") {
+function runUninstall(home, harnesses = "cursor,trae,trae-cn") {
   const result = runInstaller(home, [
     "--harness", harnesses,
     "--uninstall",
@@ -150,7 +150,6 @@ test("Kimi installs a self-contained native bundle without legacy config edits",
     assert.equal(existsSync(join(root, "agent-integrations", "memory-plugin-shared", "lib", "install")), false);
     assert.equal(existsSync(join(root, "agent-integrations", "kimicode", "tests")), false);
     assert.equal(existsSync(join(root, "agent-integrations", "kimicode", "hosts", "cursor.mjs")), false);
-    assert.equal(existsSync(join(root, "agent-integrations", "kimicode", "hosts", "zcode.mjs")), false);
     assert.equal(existsSync(join(home, ".kimi-code", "config.toml")), false);
     assert.equal(existsSync(join(home, ".kimi-code", "mcp.json")), false);
 
@@ -220,7 +219,7 @@ exit 0
     const hostsDir = join(root, "agent-integrations", "qoder", "hosts");
     assert.ok(existsSync(join(hostsDir, "qoder.mjs")));
     assert.ok(existsSync(join(hostsDir, "qoder-turns.mjs")));
-    for (const other of ["cursor.mjs", "codebuddy.mjs", "kimicode.mjs", "trae.mjs", "zcode.mjs", "qoder"]) {
+    for (const other of ["cursor.mjs", "codebuddy.mjs", "kimicode.mjs", "trae.mjs", "qoder"]) {
       assert.equal(existsSync(join(hostsDir, other)), false, other);
     }
     assert.equal(existsSync(join(root, "agent-integrations", "qoder", "tests")), false);
@@ -543,7 +542,6 @@ test("combined hook-host install preserves unrelated hooks and is idempotent", (
     const cursorMcpPath = join(home, ".cursor", "mcp.json");
     const traeHooks = join(home, ".trae", "hooks.json");
     const traeCnHooks = join(home, ".trae-cn", "hooks.json");
-    const zcodeConfig = join(home, ".zcode", "cli", "config.json");
     const thirdPartyShellHook = { command: "third-party shell audit" };
     writeJson(cursorHooks, { version: 1, hooks: {
       stop: [{ command: "third-party stop" }],
@@ -603,12 +601,6 @@ test("combined hook-host install preserves unrelated hooks and is idempotent", (
         label,
       );
     }
-    const zcodeEvents = JSON.parse(readFileSync(zcodeConfig, "utf8")).hooks.events;
-    assert.equal(
-      zcodeEvents.PreToolUse.filter((entry) => JSON.stringify(entry).includes("uri-guard.mjs")).length,
-      1,
-    );
-
     const cursorServers = JSON.parse(readFileSync(cursorMcpPath, "utf8")).mcpServers;
     const cursorMcp = cursorServers.openviking;
     assert.equal(cursorMcp.command, installedNode);
@@ -722,11 +714,6 @@ test("combined hook-host install preserves unrelated hooks and is idempotent", (
     for (const [file, label] of [[traeHooks, "trae"], [traeCnHooks, "trae-cn"]]) {
       assert.deepEqual(JSON.parse(readFileSync(file, "utf8")).hooks.PreToolUse || [], [], label);
     }
-    assert.deepEqual(
-      JSON.parse(readFileSync(zcodeConfig, "utf8")).hooks?.events?.PreToolUse || [],
-      [],
-      "zcode",
-    );
     // A backup taken while removing entries would keep a copy of them, so the
     // uninstall writes none and reclaims the one the install left.
     for (const file of [cursorHooks, cursorMcpPath, traeHooks, traeMcp, traeCnHooks, traeCnMcp]) {
@@ -741,7 +728,7 @@ test("combined hook-host install preserves unrelated hooks and is idempotent", (
 // Installing the thin harnesses together lets one client's verification pass
 // against a directory another client happened to create, so each is installed
 // into a HOME of its own.
-for (const client of ["cursor", "trae", "trae-cn", "zcode"]) {
+for (const client of ["cursor", "trae", "trae-cn"]) {
   test(`${client} installs and verifies on its own`, () => {
     const home = mkdtempSync(join(tmpdir(), `openviking-solo-${client}-`));
     try {
@@ -774,7 +761,7 @@ test("validation fails a hook host whose files are missing or whose hook does no
       encoding: "utf8",
     });
 
-    for (const client of ["cursor", "trae", "trae-cn", "zcode"]) {
+    for (const client of ["cursor", "trae", "trae-cn"]) {
       const result = validate(client);
       assert.equal(result.status, 0, `${client}: ${result.stdout}\n${result.stderr}`);
       assert.match(result.stdout, new RegExp(`${client}: hooks and MCP are configured`));
@@ -785,10 +772,10 @@ test("validation fails a hook host whose files are missing or whose hook does no
     assert.equal(incomplete.status, 1);
     assert.match(incomplete.stdout, /cursor: OpenViking hook or MCP config is incomplete/);
 
-    writeFileSync(join(home, ".openviking", "agent-integrations", "zcode", "scripts", "hook.mjs"), "process.exit(3);\n");
-    const broken = validate("zcode");
+    writeFileSync(join(home, ".openviking", "agent-integrations", "trae", "scripts", "hook.mjs"), "process.exit(3);\n");
+    const broken = validate("trae");
     assert.equal(broken.status, 1);
-    assert.match(broken.stdout, /zcode: installed Hook runtime failed its smoke test/);
+    assert.match(broken.stdout, /trae: installed Hook runtime failed its smoke test/);
   } finally {
     rmSync(home, { recursive: true, force: true });
   }

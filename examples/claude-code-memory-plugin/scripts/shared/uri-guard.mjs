@@ -214,7 +214,7 @@ export function evaluateUriNotice(toolName, input = {}, opts = {}) {
   return { uri: match.uri, reason: buildGuardNotice(match.uri, match.hint) };
 }
 
-/** The PreToolUse deny envelope claude-code, trae and zcode all read. */
+/** The PreToolUse deny envelope claude-code and trae both read. */
 export function denyHookSpecificOutput(reason) {
   return {
     hookSpecificOutput: {

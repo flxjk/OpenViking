@@ -4,7 +4,7 @@ import { runUriGuardHook } from "../../memory-plugin-shared/lib/uri-guard.mjs";
 import { HOSTS } from "../hosts/index.mjs";
 
 // The envelope is the host's: Cursor answers its own permission shape,
-// TRAE and ZCode the PreToolUse one.
+// TRAE the PreToolUse one.
 export function evaluateHostUriGuard(clientId, input = {}) {
   return HOSTS[clientId] ? HOSTS[clientId].guard(input) : {};
 }

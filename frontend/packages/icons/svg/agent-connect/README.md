@@ -8,7 +8,7 @@ The copy icon uses `currentColor`: it follows theme text colors in code-block ac
 
 The MCP, CLI, API and SDK SVGs preserve the `GenericIcon` artwork from the console reference implementation (`src/pages/ConnectAgent/connectAgentUi.tsx`). They use `currentColor` and are bundled locally, without an icon service or runtime download.
 
-DeepSeek Harness, DeerFlow, pi, ZCode and Kimi Code use the original PNG logos from [the local agent catalog](../../../../../docs/images/agents/image), which are also used by the console reference. Each is resized to 96 × 96 pixels and embedded as an SVG alpha mask, preserving the monochrome silhouette while following `currentColor` in both themes, without remote requests.
+DeepSeek Harness, DeerFlow, pi and Kimi Code use the original PNG logos from [the local agent catalog](../../../../../docs/images/agents/image), which are also used by the console reference. Each is resized to 96 × 96 pixels and embedded as an SVG alpha mask, preserving the monochrome silhouette while following `currentColor` in both themes, without remote requests.
 
 Agent logos remain their respective owners' marks. No new icon package or external CDN is required.
 

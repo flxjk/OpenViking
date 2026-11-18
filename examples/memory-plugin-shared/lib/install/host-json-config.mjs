@@ -2,9 +2,9 @@
 /**
  * The hooks/mcp merge behind every config-driven host.
  *
- * cursor, trae, trae-cn and zcode keep their hooks and MCP servers in JSON the
- * user edits too, so installing, uninstalling and folding the two files into
- * zcode's single config are the same three problems each time: read a file
+ * cursor, trae and trae-cn keep their hooks and MCP servers in JSON the user
+ * edits too, so installing, uninstalling and folding the two files together
+ * are the same three problems each time: read a file
  * without clobbering what could not be parsed, decide which entries are this
  * installer's, and write back atomically. Three copies of that had already
  * drifted — the uninstall side learned to reclaim the URI-guard entries and the
@@ -243,52 +243,10 @@ export function removeHostJsonConfigs({ hooksPath, mcpPath }) {
   }
 }
 
-/**
- * Fold the rendered hooks.json and mcp.json into zcode's single config.json.
- *
- * ZCode reads hooks from `config.json` → `hooks.events` and MCP servers from
- * `mcp.servers`, so the files `writeHostJsonConfigs` produced are an
- * intermediate step for this host rather than the thing it loads.
- */
-export function mergeZcodeConfig({ configPath, hooksPath, mcpPath }) {
-  const config = readJson(configPath);
-
-  if (fs.existsSync(hooksPath)) {
-    const hooks = readJson(hooksPath);
-    config.hooks = config.hooks || {};
-    config.hooks.enabled = true;
-    config.hooks.events = config.hooks.events || {};
-    for (const [event, handlers] of Object.entries(hooks.hooks || {})) {
-      const existing = (config.hooks.events[event] || []).filter((group) => !ownsHook(group));
-      config.hooks.events[event] = [...existing, ...handlers];
-    }
-  }
-
-  if (fs.existsSync(mcpPath) && fs.statSync(mcpPath).size > 0) {
-    const mcp = readJson(mcpPath);
-    const incoming = { ...(mcp.mcpServers || {}) };
-    if (mcp.openviking) incoming.openviking = mcp.openviking;
-    config.mcp = config.mcp || {};
-    config.mcp.servers = config.mcp.servers || {};
-    for (const [name, server] of Object.entries(incoming)) {
-      const existing = config.mcp.servers[name];
-      // Only replace an entry that does not exist yet or is already ours.
-      if (existing && !JSON.stringify(existing).includes("openviking-memory")) {
-        process.stderr.write(`Skipping ${name} MCP server: already exists and is not managed by OpenViking\n`);
-        continue;
-      }
-      config.mcp.servers[name] = server;
-    }
-  }
-
-  atomicWrite(configPath, config);
-}
-
 const COMMANDS = {
   write: ([kind, hooksPath, mcpPath, root, clientId, nodeBin, sourceMode]) =>
     writeHostJsonConfigs({ kind, hooksPath, mcpPath, root, clientId, nodeBin, sourceMode }),
   remove: ([hooksPath, mcpPath]) => removeHostJsonConfigs({ hooksPath, mcpPath }),
-  "merge-zcode": ([configPath, hooksPath, mcpPath]) => mergeZcodeConfig({ configPath, hooksPath, mcpPath }),
 };
 
 function isDirectRun() {

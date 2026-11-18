@@ -60,7 +60,6 @@ process.stdin.on("end", () => {
 PAIRED=(
   "examples/agent-hook-plugin/plugin.json:examples/agent-hook-plugin/hosts/cursor/openviking.integration.json"
   "examples/agent-hook-plugin/plugin.json:examples/agent-hook-plugin/hosts/trae/openviking.integration.json"
-  "examples/agent-hook-plugin/plugin.json:examples/agent-hook-plugin/hosts/zcode/openviking.integration.json"
   "examples/agent-hook-plugin/plugin.json:examples/agent-hook-plugin/hosts/kimicode/openviking.integration.json"
   "examples/agent-hook-plugin/plugin.json:examples/agent-hook-plugin/hosts/kimicode/kimi.plugin.json"
   "examples/agent-hook-plugin/plugin.json:examples/agent-hook-plugin/hosts/codebuddy/plugin.json"

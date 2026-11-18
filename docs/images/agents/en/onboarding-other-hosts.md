@@ -17,7 +17,7 @@ The import script reads Claude Code and Codex history directly. On other hosts, 
    | OpenCode | `opencode` | the SQLite database `~/.local/share/opencode/opencode.db`; without `sqlite3`, Node 22's `node:sqlite` can open it read-only; `synthetic` text is injected content, and sessions with a non-empty `parent_id` are sub-agents |
    | pi | `pi` | `~/.pi/agent/sessions/*/*.jsonl`; the first line of each file, `{"type":"session"}`, has the id and cwd |
    | DeepSeek Harness | `dsh` | `~/.dsh/sessions/` |
-   | Cursor, TRAE, TRAE CN, ZCode | `cursor`, `trae`, `trae-cn`, `zcode` | not confirmed |
+   | Cursor, TRAE, TRAE CN | `cursor`, `trae`, `trae-cn` | not confirmed |
 
 3. Write a small converter under `<tmp>` that writes the sessions to `<tmp>/ov-sessions.jsonl`, one session per line:
 

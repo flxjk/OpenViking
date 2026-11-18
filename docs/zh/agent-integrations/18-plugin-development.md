@@ -42,7 +42,7 @@ Task: <describe the plugin addition, fix, or maintenance change>
 1. **同一行为有一个权威实现**。共享模块拥有规则，适配器提供宿主事实；不允许在适配器中复制一套“略有不同”的规则。
 2. **统一必须发生在执行链上**。调用 `buildPluginConfig()`、`buildRecallBlockDetailed()` 或共享发送器，才构成复用。复制文件、导出同名函数、约定大家保持一致，都不足以防止分叉。
 3. **能推导的清单不手写**。配置键、诊断键、workspace 映射来自 schema；运行时文件集合来自 import 闭包；安装包必需文件来自入口和 manifest。
-4. **保留真实差异**。Claude Code 的子代理事件、Codex 的退出补偿、ZCode 的严格输出格式，各有明确原因。统一它们的公共能力，不强迫它们拥有相同的生命周期。
+4. **保留真实差异**。Claude Code 的子代理事件、Codex 的退出补偿，各有明确原因。统一它们的公共能力，不强迫它们拥有相同的生命周期。
 5. **交付方式决定生成时机**。用户直接加载仓库目录时，目录必须已经完整；用户安装构建产物时，在打包前生成依赖。不为减少 diff 破坏安装，也不为方便开发提交不需要的生成物。
 6. **每次抽象都减少维护点**。新接口应让后续修复少改一个地方。若只是多了一层转发、更多布尔参数或第二套配置表，应重新考虑。
 
@@ -123,7 +123,7 @@ sync / install / pack 负责把这张依赖图完整交付到机器上
 
 新增薄宿主时，优先使用现有 [`HOSTS`](https://github.com/volcengine/OpenViking/blob/main/examples/agent-hook-plugin/hosts/index.mjs) 和 dispatcher 支持的 `stages`、`envelope`、`prompt`、`normalizeInput`、`capture`、`guard`。需要新增接口时，先说明哪一个宿主事实无法表达，再决定是否扩展；不要预先设计覆盖所有未来 Agent 的适配器 DSL。
 
-现有 `hosts/cursor.mjs`、`hosts/trae.mjs` 和 `hosts/zcode.mjs` 表明，事件映射适合数据，消息转换适合纯函数，异步捕获适合显式回调。不要把这三种东西压进一个包含网络访问的“配置对象生成器”。
+现有 `hosts/cursor.mjs` 和 `hosts/trae.mjs` 表明，事件映射适合数据，消息转换适合纯函数，异步捕获适合显式回调。不要把这三种东西压进一个包含网络访问的“配置对象生成器”。
 
 ## 4. 配置、凭据和身份
 
@@ -195,7 +195,7 @@ peer 解析使用共享实现。现状默认从 Git 身份推导，普通非 Git
 | 子代理 | 保留身份和父子关系，避免重复 | `SubagentStart`、`SubagentStop` | 当前 hook manifest 没有这两个事件 |
 | 本地工具检查 | 文件工具的路径是虚拟 URI 时拒绝；shell 命令带虚拟 URI 时附加提示 | `PreToolUse` URI guard，匹配 Read、Glob、Grep、Edit、Write、Bash | 不注册：Codex 会把 `PreToolUse` 的上下文作为 developer 消息插在工具调用和输出之间，部分 Responses 服务端会拒绝；文件编辑走 `apply_patch`，没有路径参数 |
 
-以两份 [Claude Code hooks.json](https://github.com/volcengine/OpenViking/blob/main/examples/claude-code-memory-plugin/hooks/hooks.json) 和 [Codex hooks.json](https://github.com/volcengine/OpenViking/blob/main/examples/codex-memory-plugin/hooks/hooks.json) 为事件注册依据。相同事件名称不保证 payload 或输出格式相同。没有结束事件的宿主必须选择并说明替代提交点，例如 ZCode 在 Stop 提交；不能假装存在一个永远不会执行的 SessionEnd。
+以两份 [Claude Code hooks.json](https://github.com/volcengine/OpenViking/blob/main/examples/claude-code-memory-plugin/hooks/hooks.json) 和 [Codex hooks.json](https://github.com/volcengine/OpenViking/blob/main/examples/codex-memory-plugin/hooks/hooks.json) 为事件注册依据。相同事件名称不保证 payload 或输出格式相同。没有结束事件的宿主必须选择并说明替代提交点，例如每轮 Stop 都提交；不能假装存在一个永远不会执行的 SessionEnd。
 
 ### 5.2 Hook 入口的固定职责
 
@@ -326,7 +326,7 @@ examples/<host>-memory-plugin/ 独立原生插件需要时才创建
 | --- | --- | --- |
 | 宿主直接加载 Git 中的插件目录 | Claude Code、Codex、`agent-plugins`、OpenClaw（`ov-install` 的 GitHub 源） | 共享副本提交到 Git，checkout 后即可加载 |
 | npm 包或安装归档 | OpenCode、DSH、Pi | 在 prepack 或 staging 时生成；运行时副本不提交 Git |
-| 安装器组装相邻运行时目录 | Cursor、TRAE、TRAE CN、ZCode | 使用 `ASSEMBLED_ROOTS` 推导 `lib/MANIFEST`，按 manifest 复制共享运行时 |
+| 安装器组装相邻运行时目录 | Cursor、TRAE、TRAE CN | 使用 `ASSEMBLED_ROOTS` 推导 `lib/MANIFEST`，按 manifest 复制共享运行时 |
 
 [`sync.mjs`](https://github.com/volcengine/OpenViking/blob/main/examples/memory-plugin-shared/sync.mjs) 是上述目标的登记处。新增独立插件登记 `TARGETS` 的 source root、目标目录和 `committed`；新增组装根才扩展 `ASSEMBLED_ROOTS`，普通薄宿主通常已被现有根覆盖。是否交付 Skill 另外登记 `SKILL_TARGETS`。不要维护一份“需要复制的 20 个模块”清单。
 
@@ -499,5 +499,5 @@ git status --short --untracked-files=normal -- examples agent-plugins
 - 配置、peer、生成策略：[Memory Plugin Shared README](https://github.com/volcengine/OpenViking/blob/main/examples/memory-plugin-shared/README.md)。
 - Claude Code 的事件接线：[hooks.json](https://github.com/volcengine/OpenViking/blob/main/examples/claude-code-memory-plugin/hooks/hooks.json)；召回适配：[auto-recall.mjs](https://github.com/volcengine/OpenViking/blob/main/examples/claude-code-memory-plugin/scripts/auto-recall.mjs)。
 - Codex 的提交、异常退出与恢复：[DESIGN.md](https://github.com/volcengine/OpenViking/blob/main/examples/codex-memory-plugin/DESIGN.md)；实现：[session-end.mjs](https://github.com/volcengine/OpenViking/blob/main/examples/codex-memory-plugin/scripts/session-end.mjs)。
-- 新增配置文件式宿主：[agent-hook-plugin README](https://github.com/volcengine/OpenViking/blob/main/examples/agent-hook-plugin/README.md)；严格协议实例：[ZCode DESIGN](https://github.com/volcengine/OpenViking/blob/main/examples/agent-hook-plugin/DESIGN.md)。
+- 新增配置文件式宿主：[agent-hook-plugin README](https://github.com/volcengine/OpenViking/blob/main/examples/agent-hook-plugin/README.md)；实现：[hosts/index.mjs](https://github.com/volcengine/OpenViking/blob/main/examples/agent-hook-plugin/hosts/index.mjs)。
 - CI 和交付检查：[pr.yml](https://github.com/volcengine/OpenViking/blob/main/.github/workflows/pr.yml)、[sync.mjs](https://github.com/volcengine/OpenViking/blob/main/examples/memory-plugin-shared/sync.mjs)、[marketplace archive checker](https://github.com/volcengine/OpenViking/blob/main/.github/scripts/check-marketplace-archive.mjs)。

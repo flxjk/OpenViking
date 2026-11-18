@@ -115,7 +115,7 @@ To publish a plugin hotfix there without a product release:
 
 To roll back, run `gh workflow run release-tos.yml -f tag=<last good tag> -f update_latest=true`. The workflow definition comes from the default branch, but the scripts it calls come from the tag's checkout, so only tags that already contain the current release scripts can be republished; to go back further, publish the older plugin code as a hotfix.
 
-After either run, Claude Code (URL marketplace) picks up the change at its next update check, and a lower version counts as an update. Codex picks it up at its next start, TraeCode CLI on `trae-cli plugin marketplace upgrade`. Cursor, TRAE, TRAE CN, ZCode, Kimi Code, OpenCode, pi, and Claude Code installs on a local directory marketplace change only when the installer is re-run. dsh installs from npm and is not affected.
+After either run, Claude Code (URL marketplace) picks up the change at its next update check, and a lower version counts as an update. Codex picks it up at its next start, TraeCode CLI on `trae-cli plugin marketplace upgrade`. Cursor, TRAE, TRAE CN, Kimi Code, OpenCode, pi, and Claude Code installs on a local directory marketplace change only when the installer is re-run. dsh installs from npm and is not affected.
 
 ## Python SDK Release Flow
 

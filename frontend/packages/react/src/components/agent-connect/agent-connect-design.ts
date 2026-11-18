@@ -10,7 +10,6 @@ import OpencodeIcon from '../../../../icons/svg/agent-connect/opencode.svg?react
 import DeepseekIcon from '../../../../icons/svg/agent-connect/deepseek-harness.svg?react';
 import DeerflowIcon from '../../../../icons/svg/agent-connect/deerflow.svg?react';
 import PiIcon from '../../../../icons/svg/agent-connect/pi.svg?react';
-import ZcodeIcon from '../../../../icons/svg/agent-connect/zcode.svg?react';
 import KimiCodeIcon from '../../../../icons/svg/agent-connect/kimi-code.svg?react';
 import McpIcon from '../../../../icons/svg/agent-connect/mcp.svg?react';
 import CliIcon from '../../../../icons/svg/agent-connect/cli.svg?react';
@@ -33,7 +32,6 @@ const mainstream = [
   { id: 'deepseek-harness', Icon: DeepseekIcon },
   { id: 'deerflow', Icon: DeerflowIcon },
   { id: 'pi', Icon: PiIcon },
-  { id: 'zcode', Icon: ZcodeIcon },
   { id: 'kimi-code', Icon: KimiCodeIcon },
 ] as const;
 

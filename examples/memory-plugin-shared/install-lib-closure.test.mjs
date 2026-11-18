@@ -1,7 +1,7 @@
 /**
  * What the installer ships must equal what the shipped code imports.
  *
- * cursor, trae and zcode have no vendored copy of the shared runtime: the
+ * cursor, trae and trae-cn have no vendored copy of the shared runtime: the
  * installer assembles one in `$OV_HOME/agent-integrations/memory-plugin-shared/lib`
  * by copying the modules `lib/MANIFEST` names. A module the manifest forgets is
  * an ERR_MODULE_NOT_FOUND on the first hook of a fresh install, and one it

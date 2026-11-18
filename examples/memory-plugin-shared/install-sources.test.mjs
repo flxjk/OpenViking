@@ -82,7 +82,7 @@ function runAsync(home, bin, args, extraEnv = {}) {
   });
 }
 
-test("a default install of cursor, zcode and opencode downloads the bundle once and never runs git", () => {
+test("a default install of cursor, trae and opencode downloads the bundle once and never runs git", () => {
   const home = mkdtempSync(join(work, "home-"));
   const bin = join(home, "bin");
   const log = join(home, "calls.log");
@@ -93,7 +93,7 @@ test("a default install of cursor, zcode and opencode downloads the bundle once 
   writeExecutable(join(bin, "opencode"), "#!/bin/sh\nexit 0\n");
 
   const result = run(home, bin, [
-    "--harness", "cursor,zcode,opencode", "--lang", "en",
+    "--harness", "cursor,trae,opencode", "--lang", "en",
     "--url", "http://127.0.0.1:9", "--api-key", "", "--yes",
   ]);
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
@@ -102,7 +102,7 @@ test("a default install of cursor, zcode and opencode downloads the bundle once 
   assert.deepEqual(calls.filter((line) => line.startsWith("git ")), []);
   assert.equal(calls.filter((line) => line.includes("memory-plugin-marketplace.zip")).length, 1, calls.join("\n"));
   assert.ok(existsSync(join(home, ".openviking", "agent-integrations", "cursor", "scripts", "hook.mjs")));
-  assert.ok(existsSync(join(home, ".openviking", "agent-integrations", "zcode", "scripts", "hook.mjs")));
+  assert.ok(existsSync(join(home, ".openviking", "agent-integrations", "trae", "scripts", "hook.mjs")));
   assert.ok(existsSync(join(home, ".config", "opencode", "plugins", "openviking", "index.mjs")));
 });
 

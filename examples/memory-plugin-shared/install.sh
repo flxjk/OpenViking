@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # OpenViking Memory Plugin shared installer for Claude Code, Codex, Cursor,
-# TRAE / TRAE CN, TraeCode CLI 2.0, ZCode, Kimi Code, CodeBuddy Code,
+# TRAE / TRAE CN, TraeCode CLI 2.0, Kimi Code, CodeBuddy Code,
 # Qoder CLI, OpenCode, pi, DeepSeek Harness (dsh) and DeepSeek Harness Desktop.
 #
 # In short:
@@ -57,7 +57,6 @@
 #              installer added to ~/.trae/cli/hooks.json and ~/.trae/traecli.toml
 #   cursor     ~/.cursor/hooks.json, ~/.cursor/mcp.json, ~/.cursor/rules, ~/.cursor/skills
 #   trae       ~/.trae/hooks.json and TRAE's mcp.json (trae-cn: ~/.trae-cn, TRAE CN)
-#   zcode      ~/.zcode/cli/config.json, ~/.zcode/hooks.json, ~/.zcode/mcp.json
 #   kimicode   ~/.kimi-code/plugins
 #   codebuddy  a local marketplace registered with codebuddy, installed from ~/.codebuddy/plugins
 #   qoder      a local marketplace registered with qodercli (or qoderclicn), installed from ~/.qoder/plugins (or ~/.qoder-cn/plugins)
@@ -69,7 +68,7 @@
 #              command inside DeepSeek Harness.app, while Desktop is quit
 #   cli        npm install -g @openviking/cli: ov in npm's global bin directory,
 #              or in ~/.local/bin when that needs sudo
-# Cursor, TRAE, TRAE CN, ZCode and Antigravity run their hooks from
+# Cursor, TRAE, TRAE CN and Antigravity run their hooks from
 # ~/.openviking/agent-integrations, where Kimi Code keeps its uninstall helper and
 # CodeBuddy Code and Qoder CLI their managed marketplaces.
 # The plugin bundle is unpacked to ~/.openviking/memory-plugin-marketplace when
@@ -87,7 +86,7 @@
 # neither a published build nor part of a checkout downloads and runs the
 # published copy of this script.
 #
-# Uninstall: Cursor, TRAE, TRAE CN, ZCode, Kimi Code, CodeBuddy Code and Qoder CLI with
+# Uninstall: Cursor, TRAE, TRAE CN, Kimi Code, CodeBuddy Code and Qoder CLI with
 #   curl -fsSL https://openviking.ai/install | bash -s -- --uninstall --yes --harness <list>
 # The other harnesses with the commands the install prints at the end, such as
 #   claude plugin uninstall openviking-memory@openviking && claude plugin marketplace remove openviking
@@ -241,7 +240,7 @@ usage() {
 Usage: install.sh [options]
 
 Options:
-  --harness LIST     Comma-separated harnesses: claude, codex, cursor, trae, trae-cn, trae-cli, zcode, kimicode, codebuddy, qoder, antigravity, opencode, pi, dsh, dsh-desktop, cli.
+  --harness LIST     Comma-separated harnesses: claude, codex, cursor, trae, trae-cn, trae-cli, kimicode, codebuddy, qoder, antigravity, opencode, pi, dsh, dsh-desktop, cli.
                      Use trae-cli for TraeCode CLI 2.0 (installed through its Codex-compatible plugin format).
                      dsh is the dsh CLI from npm; dsh-desktop is DeepSeek Harness Desktop (macOS only).
                      cli is the OpenViking CLI (ov), installed from npm. Without --harness: the detected ones and cli.
@@ -259,7 +258,7 @@ Options:
   --user ID          Optional OpenViking user.
   --statusline       Register the Claude Code statusline without asking.
   --no-statusline    Skip the statusline prompt.
-  --uninstall        Remove the Cursor, TRAE, TRAE CN, ZCode, Kimi Code, CodeBuddy Code, Qoder CLI and Antigravity integrations,
+  --uninstall        Remove the Cursor, TRAE, TRAE CN, Kimi Code, CodeBuddy Code, Qoder CLI and Antigravity integrations,
                      plus any legacy TraeCode CLI hook config. Claude Code, Codex, OpenCode,
                      pi, dsh and dsh-desktop are removed with the commands the install prints at the end.
   --yes, -y          Ask nothing: use defaults and install without asking for confirmation.
@@ -596,7 +595,7 @@ antigravity_plugin_dir() {
 }
 
 refresh_available_harnesses() {
-  HAVE_CLAUDE=0; HAVE_CODEX=0; HAVE_CURSOR=0; HAVE_TRAE=0; HAVE_TRAE_CN=0; HAVE_TRAE_CLI=0; HAVE_OPENCODE=0; HAVE_PI=0; HAVE_ZCODE=0; HAVE_KIMICODE=0; HAVE_CODEBUDDY=0; HAVE_QODER=0; HAVE_ANTIGRAVITY=0; HAVE_DSH=0; HAVE_DSH_DESKTOP=0
+  HAVE_CLAUDE=0; HAVE_CODEX=0; HAVE_CURSOR=0; HAVE_TRAE=0; HAVE_TRAE_CN=0; HAVE_TRAE_CLI=0; HAVE_OPENCODE=0; HAVE_PI=0; HAVE_KIMICODE=0; HAVE_CODEBUDDY=0; HAVE_QODER=0; HAVE_ANTIGRAVITY=0; HAVE_DSH=0; HAVE_DSH_DESKTOP=0
   has_available_bin "$CLAUDE_BINS" && HAVE_CLAUDE=1
   has_available_bin "$CODEX_BINS" && HAVE_CODEX=1
   { command -v cursor >/dev/null 2>&1 || command -v cursor-agent >/dev/null 2>&1 || [ -d "/Applications/Cursor.app" ] || [ -d "$HOME/.cursor" ]; } && HAVE_CURSOR=1
@@ -607,7 +606,6 @@ refresh_available_harnesses() {
   command -v pi >/dev/null 2>&1 && HAVE_PI=1
   have_npm_dsh && HAVE_DSH=1
   { resolve_dsh_desktop_cli >/dev/null || { [ "$DSH_DESKTOP_OFFERED" -eq 1 ] && [ -d "$(dsh_home)/profiles/desktop" ]; }; } && HAVE_DSH_DESKTOP=1
-  { command -v zcode >/dev/null 2>&1 || [ -d "$HOME/.zcode" ]; } && HAVE_ZCODE=1
   { command -v kimi >/dev/null 2>&1 || [ -d "$HOME/.kimi-code" ]; } && HAVE_KIMICODE=1
   { command -v codebuddy >/dev/null 2>&1 || [ -d "$HOME/.codebuddy" ]; } && HAVE_CODEBUDDY=1
   { command -v qodercli >/dev/null 2>&1 || command -v qoderclicn >/dev/null 2>&1 || [ -d "$(qoder_home qodercli)" ] || [ -d "$(qoder_home qoderclicn)" ]; } && HAVE_QODER=1
@@ -737,7 +735,7 @@ NODE
 CLAUDE_BINS="$(normalize_bin_list "$CLAUDE_BINS_ARG" claude)"
 CODEX_BINS="$(normalize_bin_list "$CODEX_BINS_ARG" codex)"
 
-HAVE_CLAUDE=0; HAVE_CODEX=0; HAVE_CURSOR=0; HAVE_TRAE=0; HAVE_TRAE_CN=0; HAVE_TRAE_CLI=0; HAVE_OPENCODE=0; HAVE_PI=0; HAVE_ZCODE=0; HAVE_ANTIGRAVITY=0; HAVE_DSH=0; HAVE_DSH_DESKTOP=0
+HAVE_CLAUDE=0; HAVE_CODEX=0; HAVE_CURSOR=0; HAVE_TRAE=0; HAVE_TRAE_CN=0; HAVE_TRAE_CLI=0; HAVE_OPENCODE=0; HAVE_PI=0; HAVE_ANTIGRAVITY=0; HAVE_DSH=0; HAVE_DSH_DESKTOP=0
 # DeepSeek Harness Desktop is released for macOS and Windows; of the systems
 # this script runs on, only macOS ever offers it.
 DSH_DESKTOP_OFFERED=0
@@ -757,7 +755,6 @@ SEL_DSH_DESKTOP=0
 SEL_CURSOR_APP=0
 SEL_TRAE=0
 SEL_TRAE_CN=0
-SEL_ZCODE=0
 SEL_KIMICODE=0
 SEL_CODEBUDDY=0
 SEL_QODER=0
@@ -776,7 +773,7 @@ EOF
 }
 
 tui_selectable_count() {
-  printf '%s' $(( $(list_count "$TUI_CLAUDE_BINS") + $(list_count "$TUI_CODEX_BINS") + 12 + DSH_DESKTOP_OFFERED ))
+  printf '%s' $(( $(list_count "$TUI_CLAUDE_BINS") + $(list_count "$TUI_CODEX_BINS") + 11 + DSH_DESKTOP_OFFERED ))
 }
 
 tui_total_count() {
@@ -814,8 +811,6 @@ EOF
   if [ "$i" -eq "$idx" ]; then printf 'trae|trae'; return 0; fi
   i=$((i + 1))
   if [ "$i" -eq "$idx" ]; then printf 'trae-cn|trae-cn'; return 0; fi
-  i=$((i + 1))
-  if [ "$i" -eq "$idx" ]; then printf 'zcode|zcode'; return 0; fi
   i=$((i + 1))
   if [ "$i" -eq "$idx" ]; then printf 'kimicode|kimi'; return 0; fi
   i=$((i + 1))
@@ -858,7 +853,6 @@ tui_bin_label() {
     cursor:*) printf 'Cursor' ;;
     trae:*) printf 'TRAE' ;;
     trae-cn:*) printf 'TRAE CN' ;;
-    zcode:*) printf 'ZCode' ;;
     kimicode:*) printf 'Kimi Code' ;;
     codebuddy:*) printf 'CodeBuddy Code' ;;
     qoder:*) printf 'Qoder CLI' ;;
@@ -889,8 +883,6 @@ tui_bin_selected() {
     [ "$SEL_TRAE" -eq 1 ]
   elif [ "$kind" = "trae-cn" ]; then
     [ "$SEL_TRAE_CN" -eq 1 ]
-  elif [ "$kind" = "zcode" ]; then
-    [ "$SEL_ZCODE" -eq 1 ]
   elif [ "$kind" = "kimicode" ]; then
     [ "$SEL_KIMICODE" -eq 1 ]
   elif [ "$kind" = "codebuddy" ]; then
@@ -911,7 +903,6 @@ tui_bin_detected() { # tui_bin_detected <kind> <bin>
     cursor) [ "$HAVE_CURSOR" -eq 1 ] ;;
     trae) [ "$HAVE_TRAE" -eq 1 ] ;;
     trae-cn) [ "$HAVE_TRAE_CN" -eq 1 ] ;;
-    zcode) [ "$HAVE_ZCODE" -eq 1 ] ;;
     kimicode) [ "$HAVE_KIMICODE" -eq 1 ] ;;
     codebuddy) [ "$HAVE_CODEBUDDY" -eq 1 ] ;;
     qoder) [ "$HAVE_QODER" -eq 1 ] ;;
@@ -932,7 +923,6 @@ tui_set_all_bins() {
   SEL_CURSOR_APP=1
   SEL_TRAE=1
   SEL_TRAE_CN=1
-  SEL_ZCODE=1
   SEL_KIMICODE=1
   SEL_CODEBUDDY=1
   SEL_QODER=1
@@ -963,8 +953,6 @@ tui_toggle_bin() {
     SEL_TRAE=$((1 - SEL_TRAE)); return 0
   elif [ "$kind" = "trae-cn" ]; then
     SEL_TRAE_CN=$((1 - SEL_TRAE_CN)); return 0
-  elif [ "$kind" = "zcode" ]; then
-    SEL_ZCODE=$((1 - SEL_ZCODE)); return 0
   elif [ "$kind" = "kimicode" ]; then
     SEL_KIMICODE=$((1 - SEL_KIMICODE)); return 0
   elif [ "$kind" = "codebuddy" ]; then
@@ -1056,8 +1044,7 @@ tui_reset_bin_selection() {
   SEL_CURSOR_APP=0
   SEL_TRAE=0
   SEL_TRAE_CN=0
-  SEL_ZCODE=0
-  SEL_KIMICODE=0
+    SEL_KIMICODE=0
   SEL_CODEBUDDY=0
   SEL_QODER=0
   SEL_ANTIGRAVITY=0
@@ -1087,7 +1074,6 @@ EOF
   if [ "$HAVE_CURSOR" -eq 1 ]; then SEL_CURSOR_APP=1; any=1; fi
   if [ "$HAVE_TRAE" -eq 1 ]; then SEL_TRAE=1; any=1; fi
   if [ "$HAVE_TRAE_CN" -eq 1 ]; then SEL_TRAE_CN=1; any=1; fi
-  if [ "$HAVE_ZCODE" -eq 1 ]; then SEL_ZCODE=1; any=1; fi
   if [ "$HAVE_KIMICODE" -eq 1 ]; then SEL_KIMICODE=1; any=1; fi
   if [ "$HAVE_CODEBUDDY" -eq 1 ]; then SEL_CODEBUDDY=1; any=1; fi
   if [ "$HAVE_QODER" -eq 1 ]; then SEL_QODER=1; any=1; fi
@@ -1179,7 +1165,7 @@ tui_add_compatible_cli() {
 tui_has_selection() {
   [ -n "$(list_words "$SEL_CLAUDE_BINS")" ] || [ -n "$(list_words "$SEL_CODEX_BINS")" ] \
     || [ "$SEL_OPENCODE" -eq 1 ] || [ "$SEL_PI" -eq 1 ] || [ "$SEL_DSH" -eq 1 ] || [ "$SEL_DSH_DESKTOP" -eq 1 ] || [ "$SEL_CURSOR_APP" -eq 1 ] \
-    || [ "$SEL_TRAE" -eq 1 ] || [ "$SEL_TRAE_CN" -eq 1 ] || [ "$SEL_ZCODE" -eq 1 ] \
+    || [ "$SEL_TRAE" -eq 1 ] || [ "$SEL_TRAE_CN" -eq 1 ] \
     || [ "$SEL_KIMICODE" -eq 1 ] || [ "$SEL_CODEBUDDY" -eq 1 ] || [ "$SEL_QODER" -eq 1 ] || [ "$SEL_ANTIGRAVITY" -eq 1 ] || [ "$SEL_CLI" -eq 1 ]
 }
 
@@ -1196,7 +1182,6 @@ tui_finish_selection() {
   [ "$SEL_CURSOR_APP" -eq 1 ] && SELECTED_HARNESSES="${SELECTED_HARNESSES:+$SELECTED_HARNESSES,}cursor"
   [ "$SEL_TRAE" -eq 1 ] && SELECTED_HARNESSES="${SELECTED_HARNESSES:+$SELECTED_HARNESSES,}trae"
   [ "$SEL_TRAE_CN" -eq 1 ] && SELECTED_HARNESSES="${SELECTED_HARNESSES:+$SELECTED_HARNESSES,}trae-cn"
-  [ "$SEL_ZCODE" -eq 1 ] && SELECTED_HARNESSES="${SELECTED_HARNESSES:+$SELECTED_HARNESSES,}zcode"
   [ "$SEL_KIMICODE" -eq 1 ] && SELECTED_HARNESSES="${SELECTED_HARNESSES:+$SELECTED_HARNESSES,}kimicode"
   [ "$SEL_CODEBUDDY" -eq 1 ] && SELECTED_HARNESSES="${SELECTED_HARNESSES:+$SELECTED_HARNESSES,}codebuddy"
   [ "$SEL_QODER" -eq 1 ] && SELECTED_HARNESSES="${SELECTED_HARNESSES:+$SELECTED_HARNESSES,}qoder"
@@ -1274,7 +1259,6 @@ select_harnesses() {
   [ "$HAVE_PI" -eq 1 ] && detected="${detected:+$detected,}pi"
   [ "$HAVE_DSH" -eq 1 ] && detected="${detected:+$detected,}dsh"
   [ "$HAVE_DSH_DESKTOP" -eq 1 ] && detected="${detected:+$detected,}dsh-desktop"
-  [ "$HAVE_ZCODE" -eq 1 ] && detected="${detected:+$detected,}zcode"
   [ "$HAVE_KIMICODE" -eq 1 ] && detected="${detected:+$detected,}kimicode"
   [ "$HAVE_CODEBUDDY" -eq 1 ] && detected="${detected:+$detected,}codebuddy"
   [ "$HAVE_QODER" -eq 1 ] && detected="${detected:+$detected,}qoder"
@@ -1538,7 +1522,7 @@ validate_selected_harnesses() {
   local h bad=0
   while IFS= read -r h; do
     case "$h" in
-      claude|codex|cursor|trae|trae-cn|opencode|pi|zcode|kimicode|codebuddy|qoder|antigravity|dsh|cli) ;;
+      claude|codex|cursor|trae|trae-cn|opencode|pi|kimicode|codebuddy|qoder|antigravity|dsh|cli) ;;
       dsh-desktop)
         [ "$DSH_DESKTOP_OFFERED" -eq 1 ] || {
           err "$(t 'DeepSeek Harness Desktop (dsh-desktop) is installed by this script on macOS only; on Windows, add the plugin from its Plugins page.' '本脚本仅在 macOS 上安装 DeepSeek Harness Desktop（dsh-desktop）；Windows 上请在其“插件”页添加。')"
@@ -1587,7 +1571,7 @@ EOF
   if contains_harness cli; then ok=1; fi
   # Cursor and TRAE are config-driven integrations. They may be installed
   # before the desktop app itself, so a CLI in PATH is not required.
-  if contains_harness cursor || contains_harness trae || contains_harness trae-cn || contains_harness trae-cli || contains_harness zcode || contains_harness kimicode || contains_harness codebuddy || contains_harness qoder || contains_harness antigravity; then ok=1; fi
+  if contains_harness cursor || contains_harness trae || contains_harness trae-cn || contains_harness trae-cli || contains_harness kimicode || contains_harness codebuddy || contains_harness qoder || contains_harness antigravity; then ok=1; fi
   if [ "$ok" -ne 1 ]; then
     err "$(t 'No selected compatible CLI command was found in PATH.' '未在 PATH 中找到任何已选择的兼容 CLI 命令。')"
     exit 2
@@ -2438,7 +2422,6 @@ remove_legacy_trae_cli_integration() {
     && [ ! -d "$OV_HOME/agent-integrations/trae" ] \
     && [ ! -d "$OV_HOME/agent-integrations/trae-cn" ] \
     && [ ! -d "$OV_HOME/agent-integrations/trae-cli" ] \
-    && [ ! -d "$OV_HOME/agent-integrations/zcode" ] \
     && [ ! -d "$OV_HOME/agent-integrations/antigravity" ]; then
     rm -rf "$OV_HOME/agent-integrations/memory-plugin-shared"
   fi
@@ -2601,7 +2584,7 @@ install_codex() {
 # Cursor / TRAE lifecycle hooks
 # ---------------------------------------------------------------------------
 
-AGENT_HOOK_HOSTS="cursor trae zcode kimicode codebuddy qoder antigravity"
+AGENT_HOOK_HOSTS="cursor trae kimicode codebuddy qoder antigravity"
 
 copy_agent_integration() { # copy_agent_integration <host> <dest-name> [destination]
   local host="$1" dest_name="$2" explicit_dest="${3:-}" source dest tmp other
@@ -2748,49 +2731,6 @@ uninstall_agent_integrations() {
     rm -rf "$OV_HOME/agent-integrations/trae-cli"
     info "$(t 'Removed TRAE CLI OpenViking hooks and MCP config.' '已移除 TRAE CLI OpenViking hooks 与 MCP 配置。')"
   fi
-  if contains_harness zcode; then
-    # ZCode reads hooks/MCP from config.json, not standalone files.
-    # Use a node script to strip openviking entries from config.json.
-    # Safe read: ENOENT → skip; parse error → skip (do NOT overwrite user data).
-    "$NODE_BIN" - "$HOME/.zcode/cli/config.json" <<'CLEAN_NODE' 2>/dev/null || true
-const fs = require("node:fs");
-const configPath = process.argv[2];
-if (!fs.existsSync(configPath)) process.exit(0);
-let config;
-try {
-  config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-} catch {
-  // Malformed config — do NOT overwrite; skip cleanup silently.
-  process.exit(0);
-}
-if (typeof config !== "object" || config === null || Array.isArray(config)) process.exit(0);
-// Remove openviking hooks from each event
-if (config.hooks?.events) {
-  for (const [event, handlers] of Object.entries(config.hooks.events)) {
-    config.hooks.events[event] = (Array.isArray(handlers) ? handlers : []).filter(
-      (group) => !JSON.stringify(group).includes("openviking-memory"),
-    );
-    if (config.hooks.events[event].length === 0) delete config.hooks.events[event];
-  }
-  if (Object.keys(config.hooks.events).length === 0) delete config.hooks.events;
-}
-// Remove openviking MCP server — ONLY if it's managed by us (contains openviking-memory tag)
-if (config.mcp?.servers?.openviking) {
-  if (JSON.stringify(config.mcp.servers.openviking).includes("openviking-memory")) {
-    delete config.mcp.servers.openviking;
-    if (Object.keys(config.mcp.servers).length === 0) delete config.mcp.servers;
-    if (Object.keys(config.mcp).length === 0) delete config.mcp;
-  }
-}
-const tmp = `${configPath}.${process.pid}.tmp`;
-fs.writeFileSync(tmp, JSON.stringify(config, null, 2) + "\n");
-fs.renameSync(tmp, configPath);
-CLEAN_NODE
-    # Clean up intermediate files generated by agent_write_json_configs
-    rm -f "$HOME/.zcode/hooks.json" "$HOME/.zcode/mcp.json" 2>/dev/null
-    rm -rf "$OV_HOME/agent-integrations/zcode"
-    info "$(t 'Removed ZCode OpenViking hooks and MCP config.' '已移除 ZCode OpenViking hooks 与 MCP 配置。')"
-  fi
   if contains_harness kimicode; then
     local kimi_home="${KIMI_CODE_HOME:-$HOME/.kimi-code}" kimicode_lib kimicode_installed
     kimicode_lib="$OV_HOME/agent-integrations/kimicode/lib/install"
@@ -2855,7 +2795,6 @@ NODE
     && [ ! -d "$OV_HOME/agent-integrations/trae" ] \
     && [ ! -d "$OV_HOME/agent-integrations/trae-cn" ] \
     && [ ! -d "$OV_HOME/agent-integrations/trae-cli" ] \
-    && [ ! -d "$OV_HOME/agent-integrations/zcode" ] \
     && [ ! -d "$OV_HOME/agent-integrations/kimicode" ] \
     && [ ! -d "$OV_HOME/agent-integrations/codebuddy" ] \
     && [ ! -d "$OV_HOME/agent-integrations/qoder" ] \
@@ -2922,34 +2861,6 @@ install_cursor() {
     warn "$(t 'Cursor may also import these older Claude OpenViking plugins and run duplicate Hooks:' 'Cursor 还可能导入以下旧版 Claude OpenViking 插件并重复执行 Hook：') $legacy_plugins"
     warn "$(t 'Upgrade or remove those legacy plugin ids, then restart Cursor.' '请升级或移除这些旧插件 id，然后重启 Cursor。')"
   fi
-}
-
-zcode_mcp_path() {
-  printf '%s' "$HOME/.zcode/mcp.json"
-}
-
-zcode_merge_config() { # zcode_merge_config <config_path> <hooks_path> <mcp_path>
-  local lib
-  lib="$(require_install_lib_dir)" || return 1
-  "$NODE_BIN" "$lib/host-json-config.mjs" merge-zcode "$1" "$2" "$3"
-}
-
-install_zcode() {
-  step_heading "$(t 'ZCode integration' 'ZCode 集成')"
-  local root hooks_path mcp_path config_path
-  ensure_bundle
-  root="$(assemble_agent_integration zcode zcode)" || return 1
-  hooks_path="$HOME/.zcode/hooks.json"
-  mcp_path="$(zcode_mcp_path)"
-  config_path="$HOME/.zcode/cli/config.json"
-  mkdir -p "$HOME/.zcode/cli"
-  agent_write_json_configs zcode "$hooks_path" "$mcp_path" "$root" zcode "$NODE_BIN"
-  # ZCode reads hooks from config.json → hooks.events, not a standalone hooks.json.
-  # Merge the generated hooks.json and mcp.json into config.json so ZCode picks them up.
-  zcode_merge_config "$config_path" "$hooks_path" "$mcp_path" \
-    || { warn "$(t 'Failed to merge ZCode config' 'ZCode 配置合并失败')"; return 1; }
-  info "$(t 'ZCode hooks installed:' 'ZCode hooks 已安装：') $config_path (hooks.events)"
-  info "$(t 'ZCode MCP installed:' 'ZCode MCP 已安装：') $config_path (mcp.servers)"
 }
 
 # Antigravity loads plugins from directories, each a plugin.json and a
@@ -3371,8 +3282,8 @@ install_pi() {
 # Validation
 # ---------------------------------------------------------------------------
 
-# Cursor, TRAE, TRAE CN and ZCode run the same hook runtime; they differ only
-# in where their hooks and MCP entries live and in the session-start event name.
+# Cursor, TRAE and TRAE CN run the same hook runtime; they differ only in
+# where their hooks and MCP entries live and in the session-start event name.
 validate_hook_host() { # validate_hook_host <client>
   local client="$1" root="$OV_HOME/agent-integrations/$1" shared="$OV_HOME/agent-integrations/memory-plugin-shared/lib"
   local hooks mcp event file complete=1
@@ -3384,7 +3295,6 @@ validate_hook_host() { # validate_hook_host <client>
         "$HOME/.cursor/skills/openviking-memory/SKILL.md" "$HOME/.cursor/skills/openviking-skills/SKILL.md" \
         "$HOME/.cursor/skills/ov-experience-memory/SKILL.md" "$HOME/.cursor/skills/openviking-rule-search/SKILL.md"
       ;;
-    zcode) hooks="$HOME/.zcode/cli/config.json"; mcp="$hooks"; event=session-start ;;
     *) hooks="$HOME/.$client/hooks.json"; mcp="$(trae_mcp_path "$client")"; event=session-start ;;
   esac
   for file in "$@"; do
@@ -3449,7 +3359,7 @@ EOF
 $CODEX_BINS
 EOF
   fi
-  for client in cursor trae trae-cn zcode; do
+  for client in cursor trae trae-cn; do
     contains_harness "$client" || continue
     validate_hook_host "$client" || { ok=0; agent_fatal=1; }
   done
@@ -3680,7 +3590,7 @@ count_steps() {
   STEP_TOTAL=3
   if contains_harness claude; then STEP_TOTAL=$((STEP_TOTAL + $(list_count "$CLAUDE_BINS"))); fi
   if contains_harness codex; then STEP_TOTAL=$((STEP_TOTAL + $(list_count "$CODEX_BINS"))); fi
-  for h in cursor trae trae-cn zcode kimicode codebuddy qoder antigravity opencode pi dsh dsh-desktop cli; do
+  for h in cursor trae trae-cn kimicode codebuddy qoder antigravity opencode pi dsh dsh-desktop cli; do
     if contains_harness "$h"; then STEP_TOTAL=$((STEP_TOTAL + 1)); fi
   done
 }
@@ -3790,7 +3700,7 @@ $CODEX_BINS
 EOF
   fi
   if [ "$SOURCE_MODE" = "archive" ] && { contains_harness cursor || contains_harness trae || contains_harness trae-cn \
-    || contains_harness zcode || contains_harness kimicode || contains_harness codebuddy || contains_harness qoder || contains_harness antigravity || contains_harness opencode || contains_harness pi; }; then
+    || contains_harness kimicode || contains_harness codebuddy || contains_harness qoder || contains_harness antigravity || contains_harness opencode || contains_harness pi; }; then
     plan_item "$bundle ($(t 'plugin bundle download' '下载插件包'))"
   fi
   if contains_harness cursor; then
@@ -3804,13 +3714,10 @@ EOF
   if contains_harness trae-cn; then
     plan_paths "TRAE CN" "$HOME/.trae-cn/hooks.json" "$(trae_mcp_path trae-cn)" "$OV_HOME/agent-integrations/trae-cn"
   fi
-  if contains_harness zcode; then
-    plan_paths ZCode "$HOME/.zcode/cli/config.json" "$HOME/.zcode/hooks.json" "$(zcode_mcp_path)" "$OV_HOME/agent-integrations/zcode"
-  fi
   if contains_harness antigravity; then
     plan_paths Antigravity "$(antigravity_plugin_dir)" "$OV_HOME/agent-integrations/antigravity"
   fi
-  if contains_harness cursor || contains_harness trae || contains_harness trae-cn || contains_harness zcode || contains_harness antigravity; then
+  if contains_harness cursor || contains_harness trae || contains_harness trae-cn || contains_harness antigravity; then
     plan_paths "$(t 'Shared hook runtime' '共享 hook 运行时')" "$OV_HOME/agent-integrations/memory-plugin-shared"
   fi
   if contains_harness kimicode; then
@@ -3950,7 +3857,7 @@ EOF
 $CODEX_BINS
 EOF
   fi
-  for client in cursor trae trae-cn zcode; do
+  for client in cursor trae trae-cn; do
     contains_harness "$client" || continue
     label="$(tui_bin_label "$client" "$client")"
     doctor="node $(short_path "$OV_HOME/agent-integrations/$client/scripts/ov-memory-doctor.mjs")"
@@ -4083,7 +3990,6 @@ fi
 if contains_harness cursor; then install_cursor; fi
 if contains_harness trae; then install_trae_variant trae; fi
 if contains_harness trae-cn; then install_trae_variant trae-cn; fi
-if contains_harness zcode; then install_zcode; fi
 if contains_harness kimicode; then install_kimicode; fi
 if contains_harness codebuddy; then install_marketplace_host codebuddy "CodeBuddy Code" codebuddy plugin; fi
 if contains_harness qoder; then install_marketplace_host qoder "Qoder CLI" "$(qoder_clis)" plugins; fi

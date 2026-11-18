@@ -426,9 +426,9 @@ function formatSkillCatalog(groups, budgetTokens) {
  */
 export async function buildProfileBlock(fetchJSON, totalBudgetTokens, actorPeerId = "", options = {}) {
   const { skillCatalog = false, skillCatalogTokenBudget = 0, sessionStartMaxBytes = 0 } = options;
-  // Hosts that spill (Claude Code, Codex) or drop (ZCode) oversized hook output
-  // get a byte cap. An estimated token is about 4 UTF-8 bytes at most, so the
-  // token budgets shrink to fit under it.
+  // Hosts that spill oversized hook output (Claude Code, Codex) get a byte cap.
+  // An estimated token is about 4 UTF-8 bytes at most, so the token budgets
+  // shrink to fit under it.
   const capTokens = sessionStartMaxBytes > 0
     ? Math.max(0, Math.floor(sessionStartMaxBytes / 4) - 50)
     : Infinity;

@@ -174,13 +174,12 @@ export const KNOBS = [
   { name: "skillCatalog", type: "bool", default: true, env: "OPENVIKING_SKILL_CATALOG", capability: "session" },
   { name: "skillCatalogTokenBudget", type: "int", default: 1200, min: 0, max: 20000, env: "OPENVIKING_SKILL_CATALOG_TOKEN_BUDGET", capability: "session" },
   // Claude Code saves hook context over 10,000 chars to a file and shows the
-  // model a 2 KB preview; Codex spills past ~10,000 bytes; ZCode drops stdout
-  // over 32 KB. 0 means no cap.
+  // model a 2 KB preview; Codex spills past ~10,000 bytes. 0 means no cap.
   {
     name: "sessionStartMaxBytes",
     type: "int",
     default: 0,
-    harness: { claude_code: 9500, codex: 9500, zcode: 20000 },
+    harness: { claude_code: 9500, codex: 9500 },
     min: 0,
     max: 1000000,
     env: "OPENVIKING_SESSION_START_MAX_BYTES",
@@ -271,7 +270,6 @@ export const HARNESS_KEYS = {
   kimicode: "kimicode",
   trae: "trae",
   traeCn: "trae_cn",
-  zcode: "zcode",
   opencode: "opencode",
   dsh: "dsh",
   pi: "pi",

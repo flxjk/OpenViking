@@ -1,12 +1,12 @@
 # OpenViking 记忆：轻量 Hook 宿主
 
-Cursor、TRAE、TRAE CN 与 ZCode 使用宿主配置文件；Kimi Code 使用原生托管插件目录，CodeBuddy Code 与 Qoder CLI 使用本地插件 marketplace，Antigravity 使用 `~/.gemini/config/plugins/` 下的插件目录。它们共用同一个 dispatcher 和记忆运行时，安装脚本在安装时组装依赖，不在仓库里为每个宿主提交共享代码副本。
+Cursor、TRAE 与 TRAE CN 使用宿主配置文件；Kimi Code 使用原生托管插件目录，CodeBuddy Code 与 Qoder CLI 使用本地插件 marketplace，Antigravity 使用 `~/.gemini/config/plugins/` 下的插件目录。它们共用同一个 dispatcher 和记忆运行时，安装脚本在安装时组装依赖，不在仓库里为每个宿主提交共享代码副本。
 
 ```bash
 curl -fsSL https://openviking.ai/install | bash
 ```
 
-安装脚本会询问要安装哪些宿主以及 OpenViking 连接信息。要从仓库 checkout 安装，在仓库根目录运行 `bash examples/memory-plugin-shared/install.sh --harness <cursor|trae|trae-cn|zcode|kimicode|codebuddy|qoder|antigravity>`。
+安装脚本会询问要安装哪些宿主以及 OpenViking 连接信息。要从仓库 checkout 安装，在仓库根目录运行 `bash examples/memory-plugin-shared/install.sh --harness <cursor|trae|trae-cn|kimicode|codebuddy|qoder|antigravity>`。
 
 > **需要支持 `viking://~` home alias 的 OpenViking 服务端。** 召回通过 `viking://~/memories` 与 `viking://~/skills` 指向调用者自己的上下文空间；不带 uid 的 `viking://user/memories` 简写会被较新的服务端拒绝。
 
@@ -31,7 +31,6 @@ curl -fsSL https://openviking.ai/install | bash
 
 - **Cursor** — 七个事件。`afterMCPExecution` 将 OpenViking 工具结果追加到本地 JSONL 日志，Stop 时与文本 transcript 一起上报；文本去重与工具上传位置分别管理，成功后推进捕获位置，失败由原记录重试。`capturedSinceCommit` 达到阈值才 commit，压缩前在消息完整上报后 commit。会话前缀 `cu-`。见 [Cursor 接入文档](../../docs/zh/agent-integrations/12-cursor.md)。
 - **TRAE / TRAE CN** — 采集直接读 Stop 事件的 `prompt`、`text_content`、`last_assistant_message`，不解析 transcript；每次带内容的 Stop 都 commit。会话前缀 `tr-` 与 `trcn-`。见 [TRAE 接入文档](../../docs/zh/agent-integrations/13-trae.md)。
-- **ZCode** — rollout 文件是权威增量对话源：稳定的 host `turnId` 用于去重，也让后续 Stop 能补回漏掉的回合，hook stdin 只是兜底。ZCode 不支持 `PreCompact` 与 `SessionEnd`，因此每次 Stop 都 commit 来补足这两个信号。它的输出 schema 是严格的，所以放行时不写任何内容。会话前缀 `zc-`。已验证的扩展面记录在 [DESIGN.md](./DESIGN.md)。
 - **Kimi Code** — `wire.jsonl` 是权威 transcript；UserPromptSubmit 输出原始上下文文本。Stop、PreCompact、SessionEnd 可后台写入，Interrupt 保持同步并共享 2 秒的 OpenViking 请求预算。安装脚本生成自包含原生插件，不修改旧的 `config.toml` 或 `mcp.json`。会话前缀 `kc-`。
 - **Antigravity** — 桌面 app 与 `agy` CLI 读取 `~/.gemini/config/plugins/` 下的同一个插件。Antigravity 在每次模型调用前都运行 PreInvocation，所以只在一轮的第一次调用（`invocationNum` 为 0）召回，上下文以 `injectSteps` 系统消息返回。Stop 不携带文本：捕获在后台进程中读取 `transcriptPath` 里上次之后已完成的步骤，然后 commit。会话前缀为 `ag-`。用 `--harness antigravity` 安装，脚本会写入这个插件目录，不是它写入的同名目录会保留；见[社区插件文档](../../docs/zh/agent-integrations/08-community-plugins.md#antigravity-记忆集成)。
 
@@ -49,7 +48,7 @@ Kimi 的 managed plugin 需要使用它的实际安装路径：
 node "${KIMI_CODE_HOME:-$HOME/.kimi-code}/plugins/managed/openviking-memory/agent-integrations/kimicode/scripts/ov-memory-doctor.mjs" kimicode --offline
 ```
 
-对于配置型安装副本，client 默认取安装时对应的宿主；传 `cursor`、`trae`、`trae-cn` 或 `zcode` 可以覆盖。去掉 `--offline` 会连带探测服务端，加 `--json` 输出机器可读报告。
+对于配置型安装副本，client 默认取安装时对应的宿主；传 `cursor`、`trae` 或 `trae-cn` 可以覆盖。去掉 `--offline` 会连带探测服务端，加 `--json` 输出机器可读报告。
 
 ## 测试
 
