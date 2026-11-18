@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -223,6 +223,106 @@ for (const [name, value] of portEntries) {
     process.exit(1);
   }
   occupiedPorts.set(port, name);
+}
+
+// Map each stack port to the health probe of the service that owns it, so the
+// pre-flight sweep can tell "another live copy of this stack" (reuse it) from
+// "a corpse holding the socket" (reap it). Populated lazily because probeHttp
+// is declared below.
+const readyProbes = new Map();
+for (const service of services) {
+  if (!service.readyUrl) continue;
+  const owned = Number(new URL(service.readyUrl).port);
+  if (occupiedPorts.has(owned)) {
+    readyProbes.set(owned, () =>
+      probeHttp(service.readyUrl, service.readyJson, service.readyHeaders, service.readyAuthChallenge),
+    );
+  }
+}
+// VikingBot binds its own port but is health-checked through the OpenViking
+// proxy, so it has no service entry of its own. Without this mapping it would
+// look permanently unhealthy and be reaped on every restart.
+if (occupiedPorts.has(Number(botPort))) {
+  readyProbes.set(Number(botPort), () => probeHttp(`${origin(ovPort)}/bot/v1/health`));
+}
+
+// Reap stale listeners that a previous, abruptly killed run left behind.
+//
+// The launcher only tracks children it spawned itself. A run killed with
+// SIGKILL, a closed terminal, or machine sleep leaves detached children
+// holding our ports. `startService` reuses a service that is already healthy,
+// but a half-dead instance (bound socket, no working HTTP) would make the
+// server's duplicate-bind guard abort with "port is already in use".
+//
+// So: probe first, kill only if unhealthy. A healthy service is left for
+// `startService` to reuse — restarts must be idempotent, not destructive.
+//
+// Safety: only processes whose working directory is inside THIS repo are
+// considered ours. Anything else on a matching port is reported and ignored.
+function listeningPids(port) {
+  try {
+    const out = execFileSync("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-t"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    return out.split("\n").map((line) => line.trim()).filter((line) => /^[0-9]+$/.test(line));
+  } catch {
+    return []; // lsof absent, or nothing listening: either way, nothing to reap
+  }
+}
+
+function processCwd(pid) {
+  try {
+    const out = execFileSync("lsof", ["-a", "-p", pid, "-d", "cwd", "-Fn"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    return out.split("\n").find((line) => line.startsWith("n"))?.slice(1) || "";
+  } catch {
+    return "";
+  }
+}
+
+function isRepoPath(cwd) {
+  return Boolean(cwd) && (cwd === root || cwd.startsWith(root + path.sep));
+}
+
+async function reapOrphanedPorts() {
+  for (const [name, value] of portEntries) {
+    const port = Number(value);
+    const pids = listeningPids(port).filter((pid) => pid !== String(process.pid));
+    if (pids.length === 0) continue;
+
+    const foreign = pids.filter((pid) => !isRepoPath(processCwd(pid)));
+    if (foreign.length > 0) {
+      console.log(`[preflight] port ${port} (${name}) held by pid ${foreign.join(", ")} outside this repo — leaving it alone`);
+      continue;
+    }
+
+    const probe = readyProbes.get(port);
+    const current = probe ? await probe() : undefined;
+    if (current?.ready) continue; // healthy: startService will reuse it
+
+    console.log(`[preflight] port ${port} (${name}) held by unhealthy pid ${pids.join(", ")} — reaping`);
+    for (const pid of pids) {
+      try {
+        process.kill(Number(pid), "SIGTERM");
+      } catch {
+        // already gone between listing and signalling
+      }
+    }
+  }
+
+  // Give SIGTERM a moment to release the sockets we actually signalled, so the
+  // readiness poll below does not race a process that is already on its way out.
+  const stillHeld = () =>
+    portEntries.some(([, value]) =>
+      listeningPids(Number(value)).some((pid) => pid !== String(process.pid) && isRepoPath(processCwd(pid))),
+    );
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline && stillHeld()) {
+    await sleep(250);
+  }
 }
 
 function displayCommand(service) {
@@ -515,6 +615,8 @@ try {
     ...npmWorkspaces.map((dir) => stopOnFailure(() => installIfMissing(path.join(root, dir)))),
     ...(dshAvailable ? [stopOnFailure(() => installIfMissing(dshDir, { command: pnpm, args: ["install", "--frozen-lockfile"], lockfile: "pnpm-lock.yaml" }))] : []),
   ]);
+
+  await reapOrphanedPorts();
 
   const serverService = services.find((service) => service.name === "OpenViking + VikingBot");
   await stopOnFailure(() => startService(serverService));

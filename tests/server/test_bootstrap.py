@@ -556,3 +556,116 @@ def test_restart_recovery_does_not_overwrite_external_changes(tmp_path, monkeypa
     with pytest.raises(RuntimeError, match="refusing to overwrite"):
         recovery.rollback()
     assert path.read_bytes() == b"external edit"
+
+
+# --- Orphan port reclamation -------------------------------------------------
+#
+# An abruptly killed run leaves a detached vikingbot child holding the gateway
+# port.  The next start must reclaim that port instead of aborting with
+# "port is already in use", while a genuinely foreign listener must still abort.
+
+
+def test_reap_own_orphan_terminates_process_from_this_checkout(monkeypatch):
+    repo_root = Path(bootstrap.__file__).resolve().parents[2]
+    killed: list[tuple[int, int]] = []
+    alive = {4242}
+
+    def fake_listen(port):
+        return sorted(alive)
+
+    def fake_kill(pid, sig):
+        killed.append((pid, sig))
+        alive.discard(pid)
+
+    monkeypatch.setattr(bootstrap, "_listening_pids", fake_listen)
+    monkeypatch.setattr(bootstrap, "_pid_cwd", lambda pid: str(repo_root))
+    monkeypatch.setattr(bootstrap.os, "kill", fake_kill)
+
+    assert bootstrap._reap_own_orphan(18790, "vikingbot gateway") is True
+    assert killed == [(4242, bootstrap.signal.SIGTERM)]
+
+
+def test_reap_own_orphan_leaves_foreign_process_alone(monkeypatch):
+    """A listener outside this checkout is never signalled."""
+    killed: list[tuple[int, int]] = []
+    monkeypatch.setattr(bootstrap, "_listening_pids", lambda port: [999])
+    monkeypatch.setattr(bootstrap, "_pid_cwd", lambda pid: "/opt/unrelated-service")
+    monkeypatch.setattr(bootstrap.os, "kill", lambda pid, sig: killed.append((pid, sig)))
+
+    assert bootstrap._reap_own_orphan(18790, "vikingbot gateway") is False
+    assert killed == []
+
+
+def test_reap_own_orphan_ignores_unknown_cwd(monkeypatch):
+    """When the working directory cannot be determined, do not kill."""
+    killed: list[tuple[int, int]] = []
+    monkeypatch.setattr(bootstrap, "_listening_pids", lambda port: [7])
+    monkeypatch.setattr(bootstrap, "_pid_cwd", lambda pid: "")
+    monkeypatch.setattr(bootstrap.os, "kill", lambda pid, sig: killed.append((pid, sig)))
+
+    assert bootstrap._reap_own_orphan(18790, "vikingbot gateway") is False
+    assert killed == []
+
+
+def test_reap_own_orphan_skips_own_pid(monkeypatch):
+    monkeypatch.setattr(bootstrap, "_listening_pids", lambda port: [os.getpid()])
+    monkeypatch.setattr(bootstrap, "_pid_cwd", lambda pid: "/anywhere")
+    called = []
+    monkeypatch.setattr(bootstrap.os, "kill", lambda pid, sig: called.append(pid))
+
+    assert bootstrap._reap_own_orphan(18790, "vikingbot gateway") is False
+    assert called == []
+
+
+def test_reap_own_orphan_tolerates_process_vanishing(monkeypatch):
+    """A process that exits between listing and signalling must not raise."""
+    monkeypatch.setattr(bootstrap, "_listening_pids", lambda port: [11])
+    monkeypatch.setattr(bootstrap, "_pid_cwd", lambda pid: str(Path(bootstrap.__file__).resolve().parents[2]))
+
+    def gone(pid, sig):
+        raise ProcessLookupError(pid)
+
+    monkeypatch.setattr(bootstrap.os, "kill", gone)
+
+    assert bootstrap._reap_own_orphan(18790, "vikingbot gateway") is False
+
+
+def test_abort_if_port_in_use_returns_after_successful_reap(monkeypatch, capsys):
+    """The pre-fix behaviour exited 1 here; the port must now be reused."""
+    monkeypatch.setattr(bootstrap, "_reap_own_orphan", lambda port, label: True)
+
+    bootstrap._abort_if_port_in_use(18790, "vikingbot gateway")
+
+    out = capsys.readouterr().out
+    assert "Port 18790 freed" in out
+    assert "already in use" not in out
+
+
+def test_abort_if_port_in_use_still_exits_for_foreign_listener(monkeypatch, capsys):
+    """A port held by someone else's live server must still abort loudly."""
+    monkeypatch.setattr(bootstrap, "_reap_own_orphan", lambda port, label: False)
+
+    class LiveSocket:
+        """Connect succeeds, i.e. something really is listening."""
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def settimeout(self, value):
+            pass
+
+        def connect(self, address):
+            return None
+
+    monkeypatch.setattr(bootstrap.socket, "socket", lambda *a, **k: LiveSocket())
+
+    with pytest.raises(SystemExit) as excinfo:
+        bootstrap._abort_if_port_in_use(18790, "vikingbot gateway")
+
+    assert excinfo.value.code == 1
+    err = capsys.readouterr().err
+    assert "port 18790 is already in use" in err
+    assert "lsof -nP -iTCP:18790" in err

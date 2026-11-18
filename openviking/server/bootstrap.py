@@ -18,7 +18,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import FrameType
-from typing import Iterator, NoReturn, Optional
+from typing import Iterator, List, NoReturn, Optional
 
 import uvicorn
 
@@ -84,13 +84,86 @@ VIKINGBOT_DEFAULT_HOST = "127.0.0.1"
 VIKINGBOT_DEFAULT_PORT = 18790
 
 
+def _listening_pids(port: int) -> List[int]:
+    """Return PIDs listening on ``port``, or an empty list when undeterminable."""
+    try:
+        out = subprocess.run(
+            ["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN", "-t"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return []
+    return [int(line) for line in out.split() if line.strip().isdigit()]
+
+
+def _pid_cwd(pid: int) -> str:
+    """Return the process working directory, or an empty string when unknown."""
+    try:
+        out = subprocess.run(
+            ["lsof", "-a", "-p", str(pid), "-d", "cwd", "-Fn"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    for line in out.splitlines():
+        if line.startswith("n"):
+            return line[1:]
+    return ""
+
+
+def _reap_own_orphan(port: int, label: str) -> bool:
+    """Kill a stale listener on ``port`` that belongs to this checkout.
+
+    An abruptly killed run (SIGKILL, closed terminal, machine sleep) leaves a
+    detached vikingbot child holding the gateway port.  That is an orphan of our
+    own stack, not a foreign service, so reclaiming it is safe and is what the
+    operator expects from a restart.
+
+    Returns True when the port was freed.  A listener whose working directory
+    lies outside this checkout is deliberately left untouched.
+    """
+    repo_root = Path(__file__).resolve().parents[2]
+    reaped = False
+    for pid in _listening_pids(port):
+        if pid == os.getpid():
+            continue
+        cwd = _pid_cwd(pid)
+        if not cwd or not (cwd == str(repo_root) or cwd.startswith(str(repo_root) + os.sep)):
+            continue  # foreign process: never touch it
+        print(f"Reclaiming {label} port {port} from stale process {pid} ({cwd})", flush=True)
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            continue
+        reaped = True
+    if not reaped:
+        return False
+    for _ in range(20):  # up to ~5s
+        if not _listening_pids(port):
+            return True
+        time.sleep(0.25)
+    return not _listening_pids(port)
+
+
 def _abort_if_port_in_use(port: int, label: str) -> None:
     """Exit with a clear message if anything is already listening on ``port``.
 
     Without this, ``--with-bot`` would spawn a vikingbot subprocess that
     silently fails to bind while a stale process keeps serving traffic —
     the operator believes they upgraded but the old binary still answers.
+
+    An orphan from a previous run of THIS checkout is reaped first: refusing to
+    start on a port our own dead run left behind is the "port already in use"
+    loop operators hit after a hard kill.  A genuinely foreign listener still
+    aborts.
     """
+    if _reap_own_orphan(port, label):
+        print(f"Port {port} freed; continuing.", flush=True)
+        return
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.settimeout(0.5)
         try:
