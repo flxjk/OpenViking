@@ -153,16 +153,27 @@ def assert_stream_persistence_boundary(update, writes, evaluation_complete):
     return evaluation_complete or terminal
 
 
-@pytest.mark.parametrize("commit_policy", ["never", "always", "pending_tokens"])
+@pytest.mark.parametrize(
+    "commit_policy,tool_error",
+    [
+        ("never", None),
+        ("always", None),
+        ("pending_tokens", None),
+        ("never", ""),
+        ("never", "lookup failed"),
+    ],
+)
 @pytest.mark.parametrize("stream", [False, True])
 @pytest.mark.parametrize("reuse_id", [False, True])
 @pytest.mark.parametrize("parallel", [False, True])
 @pytest.mark.parametrize("compact", [False, True])
 async def test_tools_keep_calls_and_results_paired(
-    commit_policy, stream, reuse_id, parallel, compact
+    commit_policy, stream, reuse_id, parallel, compact, tool_error
 ):
     def lookup_label(label: str = "LABEL"):
         """Return the current label."""
+        if tool_error is not None:
+            raise TimeoutError(tool_error)
         return label
 
     arguments = [{}, {"label": "SECOND"}]
@@ -201,11 +212,15 @@ async def test_tools_keep_calls_and_results_paired(
         await agent.run("Read both labels", **options)
     parts = [part for row in client.rows for part in row["parts"] if part["type"] == "tool"]
     pending = [part for part in parts if part["tool_status"] == "pending"]
-    completed = [part for part in parts if part["tool_status"] == "completed"]
+    expected_status = "error" if tool_error is not None else "completed"
+    settled = [part for part in parts if part["tool_status"] == expected_status]
     assert len(parts) == 4
     assert [part["tool_input"] for part in pending] == arguments
-    assert [part["tool_input"] for part in completed] == arguments
-    assert [part["tool_output"] for part in completed] == ["LABEL", "SECOND"]
+    assert [part["tool_input"] for part in settled] == arguments
+    expected_outputs = (
+        ["Error: Function failed."] * 2 if tool_error is not None else ["LABEL", "SECOND"]
+    )
+    assert [part["tool_output"] for part in settled] == expected_outputs
     assert {part["tool_id"] for part in parts} == ({"call-1"} if reuse_id else {"call-1", "call-2"})
     assert {part["tool_name"] for part in parts} == {"lookup_label"}
     model_tool_parts = [

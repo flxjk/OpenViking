@@ -773,6 +773,9 @@ def get_logger(
 ) -> logging.Logger:
     """Get a configured logger instance.
 
+    Before adding or changing logs, follow the logging policy:
+    https://github.com/volcengine/OpenViking/blob/main/docs/repository/LOGGING.md
+
     Args:
         name: Logger name, defaults to "openviking".
         format_string: Custom log format string, optional.
@@ -876,7 +879,11 @@ def configure_uvicorn_logging() -> None:
 
 
 def configure_server_logging(*, bootstrap: bool = False) -> None:
-    """Own the root logger only at the standalone server entry point."""
+    """Own the root logger only at the standalone server entry point.
+
+    Output and initialization policy:
+    https://github.com/volcengine/OpenViking/blob/main/docs/repository/LOGGING.md
+    """
     global _server_logging_owned
     _server_logging_owned = True
     # A worker factory runs after Uvicorn has disabled access handlers. Keep

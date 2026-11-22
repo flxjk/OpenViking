@@ -23,20 +23,43 @@ from openviking_cli.session.user_id import UserIdentifier
 
 
 @pytest.mark.asyncio
-async def test_write_updates_memory_file_and_parent_overview(service):
+async def test_write_updates_memory_file_and_parent_overview(service, monkeypatch):
+    from openviking.observability.events import get_event_bus
+    from openviking.observability.reporting import runtime
+    from openviking.service.task_store import TaskStatus
+    from openviking.service.task_tracker import get_task_tracker
+
     ctx = RequestContext(user=service.user, role=Role.USER)
     memory_dir = f"viking://user/{ctx.user.user_space_name()}/memories/preferences"
     memory_uri = f"{memory_dir}/theme.md"
 
     await service.viking_fs.write_file(memory_uri, "Original preference", ctx=ctx)
 
-    result = await service.fs.write(
-        memory_uri,
-        content="Updated preference",
-        ctx=ctx,
-        mode="replace",
-        wait=True,
-    )
+    monkeypatch.setattr(runtime, "_reporter", object())
+    events = []
+    bus = get_event_bus()
+    bus.register("content-write-reporting", events.append)
+    try:
+        result = await service.fs.write(
+            memory_uri,
+            content="Updated preference",
+            ctx=ctx,
+            mode="replace",
+            wait=True,
+        )
+    finally:
+        bus.unregister("content-write-reporting")
+
+    writes = [
+        e for e in events if e.event_name == "file_mutation" and e.payload["uri"] == memory_uri
+    ]
+    assert len(writes) == 1
+    task = await get_task_tracker().get(writes[0].payload["task_id"], ctx.account_id, ctx.user.user_id)
+    assert task is not None
+    assert task.status == TaskStatus.COMPLETED
+    assert task.resource_id == memory_uri
+    assert writes[0].payload["memory_type"] == "preferences"
+    assert writes[0].payload["change_type"] == "modified"
 
     assert result["context_type"] == "memory"
     assert result["semantic_status"] == "skipped"

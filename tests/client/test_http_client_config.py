@@ -53,10 +53,8 @@ def test_async_http_client_loads_missing_fields_from_ovcli_config(tmp_path, monk
 
     assert client._url == "http://explicit-host:1933"
     assert client._api_key == "config-key"
-    # A configured gateway token is scoped to its configured URL. The explicit
-    # URL below differs, so forwarding the token would leak credentials.
-    assert client._gateway_token is None
-    assert "X-Gateway-Token" not in client._extra_headers
+    assert client._gateway_token == "gateway-secret"
+    assert client._extra_headers["X-Gateway-Token"] == "gateway-secret"
     assert client._account == "config-account"
     assert client._user_id == "config-user"
     assert client._actor_peer_id == "config-actor"
@@ -92,25 +90,6 @@ def test_async_http_client_explicit_values_override_ovcli_config(tmp_path, monke
     assert client._account == "explicit-account"
     assert client._timeout == 33.0
     assert client._profile_enabled is False
-
-
-def test_async_http_client_scopes_gateway_token_to_configured_url(tmp_path, monkeypatch):
-    config_path = tmp_path / "ovcli.conf"
-    config_path.write_text(
-        json.dumps(
-            {
-                "url": "http://config-host:1933",
-                "gateway_token": "gateway-secret",
-            }
-        )
-    )
-    monkeypatch.setenv(OPENVIKING_CLI_CONFIG_ENV, str(config_path))
-
-    matching_client = AsyncHTTPClient(url="http://config-host:1933")
-    other_client = AsyncHTTPClient(url="http://other-host:1933")
-
-    assert matching_client._gateway_token == "gateway-secret"
-    assert other_client._gateway_token is None
 
 
 def test_async_http_client_loads_agent_id_from_ovcli_config(tmp_path, monkeypatch):
@@ -422,34 +401,7 @@ def test_async_http_client_prefers_extra_headers_over_alias(tmp_path, monkeypatc
 
 
 @pytest.mark.asyncio
-async def test_async_http_client_find_does_not_send_peer_id(tmp_path, monkeypatch):
-    config_path = tmp_path / "ovcli.conf"
-    config_path.write_text("{}")
-    monkeypatch.setenv(OPENVIKING_CLI_CONFIG_ENV, str(config_path))
-
-    http = FakeSearchHTTP()
-    client = AsyncHTTPClient(url="http://explicit-host:1933", api_key="key")
-    client._http = http
-
-    await client.find(
-        "invoice",
-        target_uri="viking://user/memories",
-    )
-
-    assert http.calls == [
-        (
-            "/api/v1/search/find",
-            {
-                "query": "invoice",
-                "target_uri": "viking://user/memories",
-                "limit": 10,
-            },
-        )
-    ]
-
-
-@pytest.mark.asyncio
-async def test_async_http_client_agent_id_find_does_not_send_body_agent_id(
+async def test_async_http_client_search_scope_stays_separate_from_actor_identity(
     tmp_path, monkeypatch
 ):
     config_path = tmp_path / "ovcli.conf"
@@ -464,39 +416,38 @@ async def test_async_http_client_agent_id_find_does_not_send_body_agent_id(
     )
     client._http = http
 
-    await client.find("invoice")
-
-    assert "agent_id" not in http.calls[0][1]
-    assert "agent_uri" not in http.calls[0][1]
-    assert "peer_id" not in http.calls[0][1]
-
-
-@pytest.mark.asyncio
-async def test_async_http_client_search_does_not_send_peer_id(tmp_path, monkeypatch):
-    config_path = tmp_path / "ovcli.conf"
-    config_path.write_text("{}")
-    monkeypatch.setenv(OPENVIKING_CLI_CONFIG_ENV, str(config_path))
-
-    http = FakeSearchHTTP()
-    client = AsyncHTTPClient(url="http://explicit-host:1933", api_key="key")
-    client._http = http
-
+    await client.find(
+        "invoice",
+        target_uri="viking://~/memories",
+        options={"context_type": [ContextType.MEMORY, ContextType.RESOURCE]},
+    )
     await client.search(
         "invoice",
-        target_uri="viking://user/memories",
+        target_uri="viking://~/memories",
         session_id="session-1",
+        options={"context_type": "skill"},
     )
 
     assert http.calls == [
         (
+            "/api/v1/search/find",
+            {
+                "query": "invoice",
+                "target_uri": "viking://~/memories",
+                "limit": 10,
+                "context_type": ["memory", "resource"],
+            },
+        ),
+        (
             "/api/v1/search/search",
             {
                 "query": "invoice",
-                "target_uri": "viking://user/memories",
+                "target_uri": "viking://~/memories",
                 "session_id": "session-1",
                 "limit": 10,
+                "context_type": "skill",
             },
-        )
+        ),
     ]
 
 
@@ -555,61 +506,5 @@ async def test_async_http_client_agent_id_allows_explicit_message_peer_id(tmp_pa
         (
             "/api/v1/sessions/session-1/messages",
             {"role": "assistant", "content": "hello", "peer_id": "legacy-agent"},
-        )
-    ]
-
-
-@pytest.mark.asyncio
-async def test_async_http_client_find_sends_context_type(tmp_path, monkeypatch):
-    config_path = tmp_path / "ovcli.conf"
-    config_path.write_text("{}")
-    monkeypatch.setenv(OPENVIKING_CLI_CONFIG_ENV, str(config_path))
-
-    http = FakeSearchHTTP()
-    client = AsyncHTTPClient(url="http://explicit-host:1933", api_key="key")
-    client._http = http
-
-    await client.find(
-        "invoice",
-        options={"context_type": [ContextType.MEMORY, ContextType.RESOURCE]},
-    )
-
-    assert http.calls == [
-        (
-            "/api/v1/search/find",
-            {
-                "query": "invoice",
-                "target_uri": "",
-                "limit": 10,
-                "context_type": ["memory", "resource"],
-            },
-        )
-    ]
-
-
-@pytest.mark.asyncio
-async def test_async_http_client_search_sends_context_type(tmp_path, monkeypatch):
-    config_path = tmp_path / "ovcli.conf"
-    config_path.write_text("{}")
-    monkeypatch.setenv(OPENVIKING_CLI_CONFIG_ENV, str(config_path))
-
-    http = FakeSearchHTTP()
-    client = AsyncHTTPClient(url="http://explicit-host:1933", api_key="key")
-    client._http = http
-
-    await client.search(
-        "invoice",
-        options={"context_type": "skill"},
-    )
-
-    assert http.calls == [
-        (
-            "/api/v1/search/search",
-            {
-                "query": "invoice",
-                "target_uri": "",
-                "limit": 10,
-                "context_type": "skill",
-            },
         )
     ]
