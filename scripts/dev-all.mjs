@@ -33,7 +33,7 @@ Usage:
   npm run dev:plan  Print the start plan without installing or starting anything
 
 Environment:
-  OV_CONFIG, OV_HOST, OV_PORT, BOT_PORT, DSH_DIR, DSH_PORT, DOCS_PORT, OPENWEBUI_PORT
+  OV_CONFIG, OV_HOST, OV_PORT, BOT_PORT, DSH_DIR, DSH_PORT, DOCS_PORT, UI_DOCS_PORT, OPENWEBUI_PORT
   DSH_START_TIMEOUT_MS (default 900000), DSH_SKIP_BUILD=1 (only after a completed DSH artifact build)
   OV_API_KEY (optional; sent only to API/Bot health checks)
   OPENWEBUI_API_KEY (optional; scoped upstream key used only by OpenWebUI tools)`);
@@ -61,7 +61,7 @@ const host = process.env.OV_HOST || "127.0.0.1";
 const ovPort = process.env.OV_PORT || String(config.server?.port || 1933);
 const botPort = process.env.BOT_PORT || "18790";
 const studioPort = "3000";
-const uiDocsPort = "3002";
+const uiDocsPort = process.env.UI_DOCS_PORT || "3002";
 const docsPort = process.env.DOCS_PORT || "5173";
 const dshPort = process.env.DSH_PORT || "3090";
 const openWebuiPort = process.env.OPENWEBUI_PORT || "8765";
@@ -119,6 +119,7 @@ const services = [
     readyHeaders: readinessApiKey ? { "X-API-Key": readinessApiKey } : undefined,
     extraReadyUrls: [`${origin(ovPort)}/bot/v1/health`],
     timeoutMs: 90_000,
+    portEnv: "OV_PORT",
   },
   ...(dshAvailable
     ? [
@@ -145,6 +146,7 @@ const services = [
             : "Building DSH artifacts, then starting its client watchers and Web host; build output follows.",
           progressIntervalMs: 30_000,
           timeoutMs: dshStartupTimeout,
+          portEnv: "DSH_PORT",
         },
       ]
     : []),
@@ -162,6 +164,7 @@ const services = [
     readyJson: (body) => body?.status === "ok" && body.endpoint === origin(ovPort),
     extraReadyUrls: [`${origin(openWebuiPort, "127.0.0.1")}/openapi.json`],
     timeoutMs: 60_000,
+    portEnv: "OPENWEBUI_PORT",
   },
   {
     name: "Web Studio",
@@ -178,9 +181,12 @@ const services = [
     name: "React library watch + UI docs",
     cwd: path.join(root, "frontend"),
     command: [npm, "run", "dev"],
-    env: childEnv,
+    // The Rspress dev server reads this instead of a baked-in --port flag, so a
+    // local service already holding 3002 is solved by setting UI_DOCS_PORT.
+    env: { ...childEnv, UI_DOCS_PORT: uiDocsPort },
     readyUrl: `${origin(uiDocsPort, "127.0.0.1")}/ui/`,
     timeoutMs: 120_000,
+    portEnv: "UI_DOCS_PORT",
   },
   {
     name: "OpenViking product docs",
@@ -189,6 +195,7 @@ const services = [
     env: childEnv,
     readyUrl: `${origin(docsPort)}/`,
     timeoutMs: 90_000,
+    portEnv: "DOCS_PORT",
   },
   {
     name: "OpenClaw plugin watch",
@@ -536,9 +543,12 @@ async function startService(service) {
   throwIfStopping();
   if (service.readyUrl) {
     const current = await probeHttp(service.readyUrl, service.readyJson, service.readyHeaders, service.readyAuthChallenge);
+    const portHint = service.portEnv
+      ? `Stop that service or set ${service.portEnv} to a free port.`
+      : "Stop that service or select a different port.";
     if (current.status !== undefined) {
       if (!current.ready) {
-        throw new Error(`${service.name} URL is occupied but failed readiness (HTTP ${current.status}): ${service.readyUrl}. Stop that service or select a different port.`);
+        throw new Error(`${service.name} URL is occupied but failed readiness (HTTP ${current.status}): ${service.readyUrl}. ${portHint}`);
       }
       for (const url of service.extraReadyUrls || []) {
         const extra = await probeHttp(url, undefined, service.readyHeaders);

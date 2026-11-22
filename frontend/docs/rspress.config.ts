@@ -26,6 +26,12 @@ export default defineConfig({
   plugins: [pluginPreview()],
   builderConfig: {
     plugins: [pluginWorkspaceDev()],
+    // The dev-stack launcher owns this port: a local service that already holds
+    // 3002 is fixed with UI_DOCS_PORT instead of editing source.
+    server: {
+      host: '127.0.0.1',
+      port: Number(process.env.UI_DOCS_PORT ?? 3002),
+    },
   },
   themeConfig: {
     socialLinks: [

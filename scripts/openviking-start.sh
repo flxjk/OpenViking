@@ -27,6 +27,7 @@
 #   DSH_DIR     DeepSeek Harness checkout (default ~/git/deepseek-harness)
 #   DSH_PORT    DSH Web port (default 3090)
 #   DOCS_PORT   product docs port (default 5173)
+#   UI_DOCS_PORT  React library docs port (default 3002)
 #   OPENWEBUI_PORT  OpenWebUI tools port (default 8765)
 
 set -euo pipefail

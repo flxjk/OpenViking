@@ -412,7 +412,7 @@ When the `DSH_DIR` checkout (default `~/git/deepseek-harness`) is present, the l
 
 Startup waits for successful API and Bot health responses before starting the independent UIs and watchers together. A failed child stops the stack; `Ctrl+C` also cancels installation or startup and stops the processes this command created. Existing healthy HTTP services are reused with their current configuration and remain running when the launcher stops. Stop an existing API first when changing `OV_CONFIG`. DSH prints its authenticated URL without automatically opening another browser window.
 
-The local URLs are Web Studio at `http://127.0.0.1:3000/onboarding`, UI docs at `http://127.0.0.1:3002/ui/`, product docs at `http://127.0.0.1:5173/`, OpenWebUI tools at `http://127.0.0.1:8765/docs`, OpenViking at `http://127.0.0.1:1933`, and VikingBot through `/bot/v1/` on the OpenViking server. DSH uses `http://127.0.0.1:3090` when available. Set `OV_CONFIG`, `OV_HOST`, `OV_PORT`, `BOT_PORT`, `DOCS_PORT`, `OPENWEBUI_PORT`, `DSH_DIR`, or `DSH_PORT` to override defaults.
+The local URLs are Web Studio at `http://127.0.0.1:3000/onboarding`, UI docs at `http://127.0.0.1:3002/ui/`, product docs at `http://127.0.0.1:5173/`, OpenWebUI tools at `http://127.0.0.1:8765/docs`, OpenViking at `http://127.0.0.1:1933`, and VikingBot through `/bot/v1/` on the OpenViking server. DSH uses `http://127.0.0.1:3090` when available. Set `OV_CONFIG`, `OV_HOST`, `OV_PORT`, `BOT_PORT`, `DOCS_PORT`, `UI_DOCS_PORT`, `OPENWEBUI_PORT`, `DSH_DIR`, or `DSH_PORT` to override defaults.
 
 `OV_HOST` controls the API and product docs bind address; Web Studio, UI docs, OpenWebUI tools, and DSH stay on loopback. Service ports must be distinct.
 
