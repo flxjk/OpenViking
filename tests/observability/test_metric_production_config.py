@@ -1,14 +1,12 @@
-"""Kafka reporting uses the configuration loaded from ov.conf."""
+"""Legacy reporting settings load without activating an external sender."""
 
 import json
-from unittest.mock import Mock
 
 import pytest
 
 from openviking.config.config_file import preview_config_file
-from openviking.observability.events import try_publish_event
 from openviking.observability.reporting import runtime
-from openviking.server.config import EventReportingConfig, load_server_config
+from openviking.server.config import load_server_config
 from openviking_cli.utils.config.open_viking_config import OpenVikingConfigSingleton
 
 
@@ -54,26 +52,14 @@ def reporting_ov_conf(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_reporting_starts_from_ov_conf(reporting_ov_conf, monkeypatch):
-    path, _, reporting = reporting_ov_conf
-    reporter = Mock()
-    create_reporter = Mock(return_value=reporter)
-    monkeypatch.setattr(runtime, "KafkaEventReporter", create_reporter)
-
+async def test_reporting_stays_disabled_with_legacy_config(reporting_ov_conf):
+    path, _, _ = reporting_ov_conf
     config = load_server_config(str(path))
     assert config.port == 1944
-    try:
-        assert await runtime.start_reporting(config.observability.reporting) is reporter
-        create_reporter.assert_called_once_with(
-            {"kafka": reporting["kafka"], "telemetry": reporting["telemetry"]}
-        )
-        try_publish_event("http.request", {"method": "GET", "route": "/health", "status": 200})
-        payload = reporter.report.call_args.args[0]
-        assert payload["event_name"] == "http_request"
-        assert payload["account_id"] == "cloud"
-        assert payload["resource_id"] == "library"
-    finally:
-        await runtime.stop_reporting()
+    assert config.observability.reporting.enabled
+    assert await runtime.start_reporting(config.observability.reporting) is None
+    assert not runtime.is_reporting_enabled()
+    await runtime.stop_reporting()
 
 
 def test_config_readers_preserve_literal_credentials(reporting_ov_conf, monkeypatch):
@@ -85,16 +71,3 @@ def test_config_readers_preserve_literal_credentials(reporting_ov_conf, monkeypa
     config = OpenVikingConfigSingleton.initialize(config_path=str(path))
     assert config.vlm.api_key == "business-key"
     assert preview_config_file(content)["content"] == content
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "settings",
-    [EventReportingConfig(telemetry={"enabled": True}), EventReportingConfig(enabled=True)],
-)
-async def test_reporting_requires_both_enable_switches(settings, monkeypatch):
-    create_reporter = Mock()
-    monkeypatch.setattr(runtime, "KafkaEventReporter", create_reporter)
-
-    assert await runtime.start_reporting(settings) is None
-    create_reporter.assert_not_called()

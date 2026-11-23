@@ -4,42 +4,22 @@
 
 from __future__ import annotations
 
-import importlib
-from typing import Any
-
-from openviking.server.config import UsageReporterConfig, UsageReporterSinkConfig
+from openviking.server.config import UsageReporterConfig
 
 from .extractors import MemoryUsageExtractor
 from .file_log_sink import FileLogUsageSink
 from .reporter import UsageReporter
-from .sinks import UsageSink
-
-
-def _load_class(class_path: str) -> type:
-    module_name, class_name = class_path.rsplit(".", 1)
-    module = importlib.import_module(module_name)
-    cls = getattr(module, class_name)
-    if not isinstance(cls, type):
-        raise TypeError(f"{class_path} does not resolve to a class")
-    return cls
-
-
-def _build_sink(config: UsageReporterSinkConfig) -> UsageSink:
-    if config.type == "file_log":
-        return FileLogUsageSink(**dict(config.config))
-
-    if config.type == "custom":
-        if not config.class_path:
-            raise ValueError("custom usage sink requires class_path")
-        cls = _load_class(config.class_path)
-        kwargs: dict[str, Any] = dict(config.config)
-        return cls(**kwargs)
-
-    raise ValueError(f"Unsupported usage sink type: {config.type}")
 
 
 def build_usage_reporter(config: UsageReporterConfig) -> UsageReporter | None:
     if not config.enabled:
+        return None
+
+    # Only the built-in local log sink may receive usage events.
+    sinks = [
+        FileLogUsageSink(**dict(sink.config)) for sink in config.sinks if sink.type == "file_log"
+    ]
+    if not sinks:
         return None
 
     extractors = []
@@ -49,7 +29,6 @@ def build_usage_reporter(config: UsageReporterConfig) -> UsageReporter | None:
         else:
             raise ValueError(f"Unsupported usage extractor: {name}")
 
-    sinks = [_build_sink(sink_config) for sink_config in config.sinks]
     return UsageReporter(
         extractors=extractors,
         sinks=sinks,

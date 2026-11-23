@@ -10,13 +10,14 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urlparse
 
-os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
-
-import litellm
-from litellm import acompletion, completion
-from litellm.types.utils import LlmProviders, all_litellm_params
-from litellm.utils import ProviderConfigManager
-
+from openviking.models.litellm_runtime import (
+    LlmProviders,
+    ProviderConfigManager,
+    acompletion,
+    all_litellm_params,
+    completion,
+    litellm,
+)
 from openviking.models.model_error import model_error_boundary
 from openviking.telemetry import tracer
 from openviking.utils.message_format import format_messages, sanitize_openai_messages
