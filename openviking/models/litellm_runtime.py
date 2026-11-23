@@ -4,6 +4,7 @@ import os
 
 # LiteLLM otherwise fetches its price catalog as an import side effect.
 os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
+os.environ["LITELLM_TELEMETRY"] = "False"
 
 import litellm  # noqa: E402
 

@@ -2,22 +2,14 @@
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
-import logging
 import os
 import uuid
 
-from openviking.observability.events import register_event_subscriber, unregister_event_subscriber
 from openviking.telemetry import get_ingestion_source_type
 
-from .config import load_configuration
-from .reporter import KafkaEventReporter
 from .token_sources import get_dashboard_token_source_type
 
-logger = logging.getLogger(__name__)
-_reporter = None
-_SUBSCRIBER = "remote_event_reporting"
 _NAMES = {
     "http.request": "http_request",
     "vlm.call": "vlm_call",
@@ -29,7 +21,7 @@ _FIELDS = frozenset(
 
 
 def is_reporting_enabled():
-    return _reporter is not None
+    return False
 
 
 def make_subscriber(reporter, config):
@@ -149,30 +141,10 @@ def make_subscriber(reporter, config):
     return subscriber
 
 
-async def start_reporting(settings):
-    global _reporter
-    if not settings.enabled:
-        return None
-    try:
-        config = await asyncio.to_thread(load_configuration, settings)
-        if not config.get("telemetry", {}).get("enabled", False):
-            return None
-        reporter = await asyncio.to_thread(KafkaEventReporter, config)
-        register_event_subscriber(_SUBSCRIBER, make_subscriber(reporter, config))
-        _reporter = reporter
-        return reporter
-    except Exception:
-        # Credentials and raw connection exceptions must not reach public logs.
-        logger.error("Remote reporting initialization failed; business service remains available")
-        return None
+async def start_reporting(_settings):
+    """Accept legacy settings without constructing an external reporter."""
+    return None
 
 
 async def stop_reporting():
-    global _reporter
-    unregister_event_subscriber(_SUBSCRIBER)
-    reporter, _reporter = _reporter, None
-    if reporter is not None:
-        try:
-            await asyncio.to_thread(reporter.close)
-        except Exception:
-            logger.error("Remote reporting shutdown did not finish flushing")
+    return None

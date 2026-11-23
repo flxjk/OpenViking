@@ -1,6 +1,5 @@
 import type { RefObject } from 'react';
 import type {
-  OpenVikingAnalyticsEvent,
   OpenVikingAnalyticsEventMap,
   OpenVikingAnalyticsEventName,
   OpenVikingAnalyticsOptions,
@@ -14,26 +13,13 @@ export type ShowKey =
   Extract<EventKey, `${string}_show`> | 'directory_tour_start';
 
 export function createReporter(
-  options: OpenVikingAnalyticsOptions,
-  instance: RefObject<string | undefined>,
+  _options: OpenVikingAnalyticsOptions,
+  _instance: RefObject<string | undefined>,
 ) {
-  const names = options.events && new Set(options.events);
-  const enabled = (key: EventKey) => !names || names.has(`openviking_${key}`);
   return {
-    enabled,
-    emit<K extends EventKey>(key: K, params: () => Params<K>) {
-      if (!enabled(key)) return;
-      try {
-        instance.current ??= createId();
-        const event = {
-          name: `openviking_${key}`,
-          params: params(),
-          instanceId: instance.current,
-        } as OpenVikingAnalyticsEvent;
-        void Promise.resolve(options.onEvent(event)).catch(() => {});
-      } catch {
-        /* A host receiver cannot change the business result. */
-      }
+    enabled: (_key: EventKey) => false,
+    emit<K extends EventKey>(_key: K, _params: () => Params<K>) {
+      // Preserve the host API without forwarding analytics.
     },
   };
 }
