@@ -720,3 +720,12 @@ def test_telemetry_summary_includes_only_memory_group_when_memory_metrics_exist(
     assert "vector" not in summary
     assert "semantic_nodes" not in summary
     assert "errors" not in summary
+
+@pytest.mark.parametrize("protocol", ["grpc", "http"])
+def test_fork_refuses_remote_trace_protocols(protocol):
+    assert tracer_module.init_tracer(
+        endpoint="https://collector.invalid/v1/traces",
+        service_name="test",
+        protocol=protocol,
+        enabled=True,
+    ) is None
