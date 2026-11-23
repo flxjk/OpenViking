@@ -3,12 +3,11 @@
 
 from contextlib import asynccontextmanager
 
-import pytest
-
 from openviking.server.app import create_app
 from openviking.server.config import ServerConfig, UsageReporterConfig
 from openviking.usage_reporter import FileLogUsageSink
 from openviking.usage_reporter.config import build_usage_reporter
+from openviking_cli.utils.config.open_viking_config import OpenVikingConfig
 
 
 def test_custom_usage_sink_is_never_loaded():
@@ -50,6 +49,10 @@ def test_builtin_file_log_sink_is_built_from_config(tmp_path, monkeypatch):
 
 
 async def test_app_reuses_and_closes_usage_reporter(monkeypatch):
+    monkeypatch.setattr(
+        "openviking.server.app.get_openviking_config",
+        OpenVikingConfig,
+    )
     built_reporters = []
     assigned_reporters = []
     assigned_agent_evolution_configs = []

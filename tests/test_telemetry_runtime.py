@@ -21,6 +21,7 @@ from openviking.observability.context import (
     reset_operation_observability_context,
     reset_root_observability_context,
 )
+from openviking.server.config import ServerConfig
 from openviking.storage.collection_schemas import TextEmbeddingHandler
 from openviking.storage.queuefs.process_result import ProcessOutcome
 from openviking.storage.queuefs.semantic_executor import SemanticTreeStats
@@ -41,7 +42,6 @@ from openviking.telemetry.context import (
 )
 from openviking.telemetry.snapshot import TelemetrySnapshot
 from openviking.telemetry.span_models import OperationSpanAttributes, RootSpanAttributes
-from openviking_cli.utils import logger as logger_module
 
 
 def test_root_observability_context_bind_and_reset():
@@ -721,11 +721,12 @@ def test_telemetry_summary_includes_only_memory_group_when_memory_metrics_exist(
     assert "semantic_nodes" not in summary
     assert "errors" not in summary
 
-@pytest.mark.parametrize("protocol", ["grpc", "http"])
+
+@pytest.mark.parametrize("protocol", ["grpc", "http", None])
 def test_fork_refuses_remote_trace_protocols(protocol):
-    assert tracer_module.init_tracer(
-        endpoint="https://collector.invalid/v1/traces",
-        service_name="test",
-        protocol=protocol,
-        enabled=True,
-    ) is None
+    traces = {"endpoint": "https://collector.invalid/v1/traces", "enabled": True}
+    if protocol is not None:
+        traces["protocol"] = protocol
+    config = ServerConfig.model_validate({"observability": {"traces": traces}})
+    assert config.observability.traces.enabled is False
+    assert tracer_module.init_tracer_from_server_config(config) is None

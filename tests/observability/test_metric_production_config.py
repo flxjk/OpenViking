@@ -53,11 +53,11 @@ def reporting_ov_conf(tmp_path, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_reporting_stays_disabled_with_legacy_config(reporting_ov_conf):
-    path, _, _ = reporting_ov_conf
+    path, _, reporting = reporting_ov_conf
     config = load_server_config(str(path))
     assert config.port == 1944
-    assert config.observability.reporting.enabled
-    assert await runtime.start_reporting(config.observability.reporting) is None
+    assert "reporting" not in config.observability.model_dump()
+    assert await runtime.start_reporting(reporting) is None
     assert not runtime.is_reporting_enabled()
     await runtime.stop_reporting()
 

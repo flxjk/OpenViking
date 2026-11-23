@@ -16,7 +16,6 @@ from openviking.metrics.global_api import (
     get_metrics_registry,
     init_metrics_from_server_config,
     shutdown_metrics,
-    shutdown_metrics_async,
 )
 from openviking.server.app import create_app
 from openviking.server.config import (
@@ -27,6 +26,7 @@ from openviking.server.config import (
     PrometheusExporterConfig,
     ServerConfig,
 )
+from openviking_cli.utils.config.open_viking_config import OpenVikingConfig
 
 
 class TestPrometheusExposition:
@@ -127,6 +127,13 @@ class TestRetrievalStatsMetricsIntegration:
 @pytest.mark.asyncio
 class TestMetricsEndpoint:
     """Tests for the /metrics HTTP endpoint."""
+
+    @pytest.fixture(autouse=True)
+    def app_config(self, monkeypatch):
+        monkeypatch.setattr(
+            "openviking.server.app.get_openviking_config",
+            OpenVikingConfig,
+        )
 
     async def test_ragfs_authoritative_metrics_endpoint(self):
         """Export fixed native records through bootstrap and HTTP; return None."""

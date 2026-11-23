@@ -286,6 +286,16 @@ class LocalTraceConfig(BaseModel):
     local_rotation_mb: int = Field(default=40, gt=0)
     local_backup_count: int = Field(default=2, ge=0)
 
+    @model_validator(mode="before")
+    @classmethod
+    def disable_legacy_remote_tracing(cls, data: Any) -> Any:
+        """Accept legacy OTLP settings while keeping the configured exporter inactive."""
+        if isinstance(data, Mapping):
+            protocol = data.get("protocol", "grpc" if "endpoint" in data else "local")
+            if protocol in ("grpc", "http"):
+                return {**data, "protocol": "local", "enabled": False}
+        return data
+
 
 class MetricsExportersConfig(BaseModel):
     """Metrics exporters configuration."""
