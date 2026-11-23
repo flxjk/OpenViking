@@ -13,7 +13,7 @@ transcript decoding, output formatting, and commit policy:
 - **UserPromptSubmit** recalls memory and prints raw context text for Kimi to inject.
 - **PreToolUse** blocks direct Read/Glob/Grep access to `viking://` URIs.
 - **Stop**, **PreCompact**, and **SessionEnd** capture new `wire.jsonl` turns; **Interrupt** runs the same capture synchronously within one two-second OpenViking request budget.
-- The plugin manifest exposes the OpenViking MCP server without editing Kimi's legacy config files.
+- The plugin manifest exposes the OpenViking MCP server and the 5 skills under the plugin root's `skills/` (`openviking-memory`, `openviking-skills`, `ov-experience-memory`, `openviking-rule-search`, `ov-memory-doctor`) without editing Kimi's legacy config files.
 
 ### Install
 
@@ -47,9 +47,12 @@ The Antigravity integration serves the Antigravity desktop app and the `agy` CLI
 
 - **SessionStart** injects the user profile.
 - **PreInvocation** recalls relevant memories on the first model call of each turn. Antigravity runs this hook before every model call, so later calls in a tool loop skip recall.
+- **PreToolUse** denies file tool calls whose location argument is a `viking://` URI and points to the OpenViking MCP tools. Shell commands (`run_command`) are not checked.
 - **Stop** captures the finished steps of the conversation transcript in a detached worker, then commits the OpenViking session.
 
 Antigravity hooks use their own `hooks.json` format: each top-level key names a hook, and context is returned as `injectSteps` system messages. A Claude Code `hooks.json` therefore cannot be reused.
+
+The plugin also carries the OpenViking MCP server and 5 skills (`openviking-memory`, `openviking-skills`, `ov-experience-memory`, `openviking-rule-search`, `ov-memory-doctor`): the agent can search and manage memory itself through the MCP tools, and each skill is also invocable as `/<name>`.
 
 ### Install
 
@@ -59,12 +62,13 @@ Prerequisites: Node.js 18+, a running OpenViking server, and the Antigravity app
 curl -fsSL https://openviking.ai/install | bash -s -- --yes --harness antigravity
 ```
 
-The installer writes the plugin to `~/.gemini/config/plugins/openviking-memory` and its runtime to `~/.openviking/agent-integrations/antigravity`. If a directory of that name exists and OpenViking did not write it, the installer leaves it in place and stops. Connection settings come from `~/.openviking/ovcli.conf` as for the other integrations. The installer does not add an MCP server; add the OpenViking MCP server in `~/.gemini/config/mcp_config.json` if you want the agent to search memory itself.
+The installer writes the plugin to `~/.gemini/config/plugins/openviking-memory` and its runtime to `~/.openviking/agent-integrations/antigravity`. If a directory of that name exists and OpenViking did not write it, the installer leaves it in place and stops. Connection settings come from `~/.openviking/ovcli.conf` as for the other integrations. The plugin directory holds `plugin.json`, `hooks.json`, `mcp_config.json`, and `skills/`. If `~/.gemini/config/mcp_config.json` already defines an MCP server named `openviking`, the installer keeps yours and does not write the plugin's `mcp_config.json`, so no tool appears twice.
 
 Restart the Antigravity app or start a new `agy` session, then verify that:
 
 - the `agy` log under `~/.gemini/antigravity-cli/log/` reports `loaded 1 named hooks`;
-- after a turn, `~/.openviking/hook-state/antigravity/<conversation-id>.json` records `lastStep`.
+- after a turn, `~/.openviking/hook-state/antigravity/<conversation-id>.json` records `lastStep`;
+- the plugin directory contains `skills/openviking-memory/SKILL.md`, and `mcp_config.json` unless your own configuration already has an `openviking` server.
 
 To uninstall:
 
