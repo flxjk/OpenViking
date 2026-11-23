@@ -1,25 +1,16 @@
-"""Langfuse integration for LLM observability."""
+"""Compatibility API for the disabled external Langfuse integration."""
 
 from contextlib import contextmanager
 from typing import Any, Generator
 
 from loguru import logger
 
-# Try to import langfuse - will be None if not installed
-Langfuse = None
+# Retained for the local observation helpers. No SDK is loaded in this fork.
 propagate_attributes = None
-
-try:
-    from langfuse import Langfuse
-    from langfuse import propagate_attributes as _propagate_attributes
-
-    propagate_attributes = _propagate_attributes
-except ImportError:
-    pass
 
 
 class LangfuseClient:
-    """Wrapper for Langfuse client with optional support."""
+    """Compatibility wrapper that never starts a production exporter."""
 
     _instance: "LangfuseClient | None" = None
 
@@ -31,39 +22,10 @@ class LangfuseClient:
         base_url: str = "https://cloud.langfuse.com",
     ):
         self._client = None
-        self.enabled = enabled
+        self.enabled = False
         self._observations_by_response_id: dict[str, Any] = {}
         self._metadata_by_response_id: dict[str, dict[str, Any]] = {}
         self._trace_context_by_response_id: dict[str, dict[str, str]] = {}
-
-        if not self.enabled:
-            return
-
-        if Langfuse is None:
-            logger.warning(
-                'Langfuse not installed. Install with: uv pip install langfuse>=3.0.0. Configure in ~/.openviking/ov.conf under bot.langfuse'
-            )
-            self.enabled = False
-            return
-
-        if not secret_key:
-            logger.warning(
-                "Langfuse enabled but no secret_key provided. Configure in ~/.openviking/ov.conf under bot.langfuse"
-            )
-            self.enabled = False
-            return
-
-        try:
-            self._client = Langfuse(
-                secret_key=secret_key,
-                public_key=public_key,
-                host=base_url,
-            )
-            self._client.auth_check()
-        except Exception as e:
-            logger.warning(f"Langfuse initialized failed: {type(e).__name__}: {e}")
-            self.enabled = False
-            self._client = None
 
     @classmethod
     def get_instance(cls) -> "LangfuseClient":

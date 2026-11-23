@@ -49,7 +49,6 @@ from .collectors.vlm import VLMCollector
 from .collectors.vikingdb_operations import VikingDBOperationCollector
 from .core.registry import MetricRegistry
 from .core.runtime import EventCollectorRouter
-from .exporters.otel import OTelMetricExporter
 from .exporters.prometheus import PrometheusExporter
 
 logger = get_logger(__name__)
@@ -153,21 +152,6 @@ def init_metrics_from_server_config(
                 registry=_registry, collector_manager=collector_manager
             )
             _exporters.append(prometheus_exporter)
-
-        # Initialize OTel exporter if enabled
-        if exporters_config.otel.enabled:
-            otel_exporter = OTelMetricExporter(
-                registry=_registry,
-                collector_manager=collector_manager,
-                protocol=exporters_config.otel.protocol,
-                insecure=exporters_config.otel.tls.insecure,
-                endpoint=exporters_config.otel.endpoint,
-                service_name=exporters_config.otel.service_name,
-                export_interval_ms=exporters_config.otel.export_interval_ms,
-                headers=exporters_config.otel.headers,
-            )
-            otel_exporter.start()
-            _exporters.append(otel_exporter)
 
         if app is not None:
             app.state.metrics_exporters = _exporters

@@ -58,3 +58,14 @@ def test_langfuse_client_creates_event_and_score_for_outcome():
     assert client._client.scores[0]["observation_id"] == "obs-123"
     assert client._client.scores[0]["metadata"]["response_id"] == "resp-123"
     assert client._client.flush_calls == 1
+
+def test_fork_cannot_activate_the_langfuse_client():
+    client = LangfuseClient(
+        enabled=True,
+        secret_key="fixture-secret",
+        public_key="fixture-public",
+        base_url="https://collector.invalid",
+    )
+    assert not client.enabled
+    assert client._client is None
+    client.flush()
