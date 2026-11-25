@@ -127,12 +127,15 @@ API key 会由 hooks 和 MCP proxy 作为 `Authorization: Bearer ...` 发送；`
 
 ## 验证
 
-安装后重启 OpenCode。进入 OpenCode session 后，插件应暴露 `openviking` MCP server，透传服务端完整 MCP 工具集（17 个工具）。OpenCode 会给 MCP 工具加 `openviking_` 前缀：
+安装后重启 OpenCode。进入 OpenCode session 后，插件应暴露 `openviking` MCP server，透传服务端完整 MCP 工具集（32 个工具）。OpenCode 会给 MCP 工具加 `openviking_` 前缀：
 
-- `openviking_find`、`openviking_search`（`openviking_search` 的 `mode="context"` 替代原 recall 工具）
+- `openviking_find_mcp_tools`、`openviking_invoke_mcp_tool`、`openviking_mcpToolsByIntent`
+- `openviking_find`、`openviking_search`（`openviking_search` 的 `mode="context"` 替代原 recall 工具）、`openviking_contextPack`、`openviking_rule_search`、`openviking_rulesFor`
 - `openviking_read`、`openviking_download`、`openviking_list`、`openviking_tree`、`openviking_grep`、`openviking_glob`
-- `openviking_remember`、`openviking_write`、`openviking_edit`、`openviking_add_resource`、`openviking_add_skill`
+- `openviking_remember`、`openviking_captureDecision`、`openviking_write`、`openviking_edit`、`openviking_add_resource`、`openviking_add_skill`、`openviking_skillFromTrajectory`
 - `openviking_list_watches`、`openviking_cancel_watch`、`openviking_forget`、`openviking_health`
+- `openviking_privacy_tree`、`openviking_privacy_resolve`、`openviking_privacy_upsert`
+- `openviking_list_users`、`openviking_list_groups`、`openviking_get_acl`、`openviking_set_acl`
 
 OpenCode 2 在每次 execution 结束时抓取本轮用户消息、助手回复和工具结果，并在压缩前补齐即将移出上下文的对话；达到 token 阈值时提交，compaction、session 删除和插件 cleanup 会强制提交。OpenCode 2 会在无活动 60 分钟、服务停止或本地插件热重载时执行 cleanup。
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -116,6 +116,7 @@ const services = [
     env: serverEnv,
     readyUrl: `${origin(ovPort)}/health`,
     readyJson: (body) => body?.healthy === true && typeof body.version === "string",
+    verifyReuse: verifyOpenVikingWorkspace,
     readyHeaders: readinessApiKey ? { "X-API-Key": readinessApiKey } : undefined,
     extraReadyUrls: [`${origin(ovPort)}/bot/v1/health`],
     timeoutMs: 90_000,
@@ -275,6 +276,22 @@ function listeningPids(port) {
     return out.split("\n").map((line) => line.trim()).filter((line) => /^[0-9]+$/.test(line));
   } catch {
     return []; // lsof absent, or nothing listening: either way, nothing to reap
+  }
+}
+
+function verifyOpenVikingWorkspace() {
+  if (config.storage?.skip_process_lock) return;
+  const pids = listeningPids(ovPort);
+  if (!pids.length) return; // Listener inspection is optional on hosts without lsof.
+  const workspace = execFileSync(pythonBin, [
+    "-c", "import os, sys; print(os.path.realpath(os.path.expanduser(os.path.expandvars(sys.argv[1]))))",
+    config.storage?.workspace || "./data",
+  ], { cwd: root, encoding: "utf8" }).trim();
+  const held = spawnSync("lsof", ["-nP", "-a", "-p", pids.join(","), "-t", path.join(workspace, ".openviking.lock")], {
+    stdio: "ignore",
+  });
+  if (held.status !== 0) {
+    throw new Error(`OpenViking on port ${ovPort} does not hold the configured workspace ${workspace}. Stop that instance before starting this checkout.`);
   }
 }
 
@@ -550,6 +567,7 @@ async function startService(service) {
       if (!current.ready) {
         throw new Error(`${service.name} URL is occupied but failed readiness (HTTP ${current.status}): ${service.readyUrl}. ${portHint}`);
       }
+      service.verifyReuse?.();
       for (const url of service.extraReadyUrls || []) {
         const extra = await probeHttp(url, undefined, service.readyHeaders);
         if (!extra.ready) {

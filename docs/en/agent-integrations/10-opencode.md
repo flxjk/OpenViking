@@ -127,12 +127,15 @@ API keys are sent as `Authorization: Bearer ...` by both hooks and the MCP proxy
 
 ## Verify
 
-Restart OpenCode after installation. In an OpenCode session, the plugin should expose the `openviking` MCP server with the full server MCP tool set (17 tools). OpenCode namespaces MCP tools as `openviking_*`:
+Restart OpenCode after installation. In an OpenCode session, the plugin should expose the `openviking` MCP server with the full server MCP tool set (32 tools). OpenCode namespaces MCP tools as `openviking_*`:
 
-- `openviking_find`, `openviking_search` (`openviking_search` with `mode="context"` replaces the former recall tool)
+- `openviking_find_mcp_tools`, `openviking_invoke_mcp_tool`, `openviking_mcpToolsByIntent`
+- `openviking_find`, `openviking_search` (`openviking_search` with `mode="context"` replaces the former recall tool), `openviking_contextPack`, `openviking_rule_search`, `openviking_rulesFor`
 - `openviking_read`, `openviking_download`, `openviking_list`, `openviking_tree`, `openviking_grep`, `openviking_glob`
-- `openviking_remember`, `openviking_write`, `openviking_edit`, `openviking_add_resource`, `openviking_add_skill`
+- `openviking_remember`, `openviking_captureDecision`, `openviking_write`, `openviking_edit`, `openviking_add_resource`, `openviking_add_skill`, `openviking_skillFromTrajectory`
 - `openviking_list_watches`, `openviking_cancel_watch`, `openviking_forget`, `openviking_health`
+- `openviking_privacy_tree`, `openviking_privacy_resolve`, `openviking_privacy_upsert`
+- `openviking_list_users`, `openviking_list_groups`, `openviking_get_acl`, `openviking_set_acl`
 
 OpenCode 2 captures the current turn's user message, assistant response, and tool results when each execution ends, and captures the transcript before compaction discards it. It commits at the token threshold, and forces a commit on compaction, session deletion, and plugin cleanup. OpenCode 2 runs cleanup after 60 minutes of inactivity, when the service stops, and when a local plugin is hot-reloaded.
 

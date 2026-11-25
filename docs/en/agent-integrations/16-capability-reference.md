@@ -24,7 +24,7 @@ Long-term memories are extracted from a session only after a **commit**. Capture
 
 ### Agent-callable tools
 
-"Server MCP tools" means whatever the server's `tools/list` returns: 22 tools on the current server, listed in [Server MCP tools](#server-mcp-tools).
+"Server MCP tools" means whatever the server's `tools/list` returns: 32 tools on the current server, listed in [Server MCP tools](#server-mcp-tools).
 
 | Integration | How it connects | Tools the agent can call |
 |---|---|---|
@@ -86,11 +86,14 @@ Every MCP-based integration exposes the same server-defined tools and keeps no c
 
 | Group | Tools |
 |---|---|
-| Search and browse | `find`, `search`, `rule_search`, `read`, `download`, `list`, `tree`, `grep`, `glob` |
-| Write | `remember`, `write`, `edit`, `add_resource`, `add_skill` |
+| Search and browse | `find`, `search`, `contextPack`, `read`, `download`, `list`, `tree`, `grep`, `glob` |
+| Rules | `rule_search`, `rulesFor` |
+| Write | `remember`, `captureDecision`, `write`, `edit`, `add_resource`, `add_skill`, `skillFromTrajectory` |
 | Delete | `forget` |
 | Watched resources | `list_watches`, `cancel_watch` (not yet available on the commercial edition) |
 | Accounts and access control | `list_users`, `list_groups`, `get_acl`, `set_acl` |
+| Credentials | `privacy_tree`, `privacy_resolve`, `privacy_upsert` |
+| Upstream MCP tools | `find_mcp_tools`, `invoke_mcp_tool`, `mcpToolsByIntent` |
 | Status | `health` |
 
 Behavior to know before relying on a tool:

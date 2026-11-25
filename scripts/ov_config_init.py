@@ -81,7 +81,8 @@ def build_config() -> dict:
 
     host = os.environ.get("OV_HOST", "127.0.0.1")
     port = int(os.environ.get("OV_PORT", "1933"))
-    workspace = os.environ.get("OV_WORKSPACE", str(REPO / "data"))
+    # The local launcher runs the server from the checkout, even after a move.
+    workspace = os.environ.get("OV_WORKSPACE", "./data")
     gateway_key = os.environ.get("OV_GATEWAY_KEY") or secrets.token_urlsafe(32)
 
     config: dict = {

@@ -24,7 +24,7 @@
 
 ### 可调用工具
 
-“服务端 MCP 工具”指服务端 `tools/list` 返回的工具：当前服务端有 22 个，列在[服务端 MCP 工具](#服务端-mcp-工具)。
+“服务端 MCP 工具”指服务端 `tools/list` 返回的工具：当前服务端有 32 个，列在[服务端 MCP 工具](#服务端-mcp-工具)。
 
 | 集成 | 接入方式 | Agent 可调用的工具 |
 |---|---|---|
@@ -85,11 +85,14 @@
 
 | 分组 | 工具 |
 |---|---|
-| 检索与浏览 | `find`、`search`、`rule_search`、`read`、`download`、`list`、`tree`、`grep`、`glob` |
-| 写入 | `remember`、`write`、`edit`、`add_resource`、`add_skill` |
+| 检索与浏览 | `find`、`search`、`contextPack`、`read`、`download`、`list`、`tree`、`grep`、`glob` |
+| 规则 | `rule_search`、`rulesFor` |
+| 写入 | `remember`、`captureDecision`、`write`、`edit`、`add_resource`、`add_skill`、`skillFromTrajectory` |
 | 删除 | `forget` |
 | 监听资源 | `list_watches`、`cancel_watch`（商业版暂不支持） |
 | 账户与权限 | `list_users`、`list_groups`、`get_acl`、`set_acl` |
+| 凭据 | `privacy_tree`、`privacy_resolve`、`privacy_upsert` |
+| 上游 MCP 工具 | `find_mcp_tools`、`invoke_mcp_tool`、`mcpToolsByIntent` |
 | 状态 | `health` |
 
 使用前需要了解的行为：

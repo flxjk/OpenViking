@@ -34,7 +34,15 @@ set -euo pipefail
 
 # Resolve the checkout: prefer an explicit OV_DIR, else the repo this script
 # lives in, else the conventional location.
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# The launcher is installed on PATH as a symlink, so resolve the link chain
+# first; dirname of the link alone would point at the bin directory.
+SOURCE="${BASH_SOURCE[0]}"
+while [[ -L "$SOURCE" ]]; do
+  SOURCE_DIR="$(cd -- "$(dirname -- "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" == /* ]] || SOURCE="$SOURCE_DIR/$SOURCE"
+done
+SCRIPT_DIR="$(cd -- "$(dirname -- "$SOURCE")" && pwd)"
 DEFAULT_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 
 if [[ -n "${OV_DIR:-}" ]]; then
@@ -82,10 +90,44 @@ if [[ ! -x "$OV_DIR/.venv/bin/openviking-server" ]]; then
   exit 1
 fi
 
+# `-x` is not enough: a venv built before the checkout moved still has a
+# shebang naming the old absolute interpreter, so exec fails with a bare
+# ENOENT. Check the interpreter and point at the local reinstall instead.
+server_python="$(sed -n '1s/^#!//p' "$OV_DIR/.venv/bin/openviking-server")"
+server_python="${server_python%% *}"
+if [[ "$server_python" == /* && ! -x "$server_python" ]]; then
+  echo "openviking-start: $OV_DIR/.venv/bin/openviking-server has a stale interpreter: $server_python" >&2
+  echo "The venv predates the current checkout path; reinstall it locally:" >&2
+  echo "  cd \"$OV_DIR\" && uv sync --all-extras" >&2
+  exit 1
+fi
+
 if [[ ! -f "$OV_DIR/ov.conf" ]]; then
   echo "openviking-start: $OV_DIR/ov.conf not found" >&2
   echo "Generate it first: just ov-config-init" >&2
   exit 1
 fi
 
-exec npm run dev -- "$@"
+if (( $# > 0 )); then
+  # Help, plan and argument validation do not start the supervisor.
+  exec npm run dev -- "$@"
+fi
+
+# Hold an OS lock through exec so two terminal invocations cannot both sweep
+# ports, start watchers or race the API server while it is becoming ready.
+exec "$OV_DIR/.venv/bin/python" -c '
+import fcntl
+import os
+from pathlib import Path
+
+run_dir = Path(".run")
+run_dir.mkdir(exist_ok=True)
+with (run_dir / "openviking-start.lock").open("a") as lock:
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        print(f"OpenViking is already starting or running from {Path.cwd()}.")
+        raise SystemExit(0)
+    os.set_inheritable(lock.fileno(), True)
+    os.execvp("npm", ["npm", "run", "dev"])
+'
