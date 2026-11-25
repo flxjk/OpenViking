@@ -97,6 +97,9 @@ def plan_entries(
     used = 0
     dropped = 0
     deduped = 0
+    candidate_tokens = 0
+    dropped_tokens = 0
+    deduped_tokens = 0
     seen_bodies: set[int] = set()
 
     def fits_cap(tier: Tier, tokens: int) -> bool:
@@ -107,6 +110,9 @@ def plan_entries(
 
     for candidate in candidates:
         start, ceiling = tier_window(candidate, pins.for_category(candidate.category))
+        start_text = tier_text(candidate, start, contents=contents)
+        start_tokens = fragment_tokens(_make_entry(candidate, start, start_text)) if start_text is not None else 0
+        candidate_tokens += start_tokens
         placed: Optional[_Slot] = None
         for tier in _tiers_down_from(candidate, start):
             text = tier_text(candidate, tier, contents=contents)
@@ -123,6 +129,7 @@ def plan_entries(
 
         if placed is None:
             dropped += 1
+            dropped_tokens += start_tokens
             continue
 
         # Dedup on what actually gets injected: two URIs sharing an abstract they
@@ -130,6 +137,7 @@ def plan_entries(
         body_key = hash(placed.entry.text or candidate.base_uri)
         if body_key in seen_bodies:
             deduped += 1
+            deduped_tokens += placed.entry.tokens
             continue
         seen_bodies.add(body_key)
 
@@ -190,6 +198,10 @@ def plan_entries(
         "returned": len(entries),
         "dropped": dropped,
         "deduped": deduped,
+        "candidate_tokens": candidate_tokens,
+        "dropped_tokens": dropped_tokens,
+        "deduped_tokens": deduped_tokens,
+        "tokens_saved": max(0, candidate_tokens - used),
         "detail": pins.as_stats(),
         "tier_counts": tier_counts,
         "fill": {

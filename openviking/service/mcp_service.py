@@ -936,6 +936,37 @@ class MCPService:
             result["root_uris"] = list(roots)
         return result
 
+    async def definition(self, tool_uri: str, ctx: RequestContext) -> dict[str, Any]:
+        """Return one catalogued tool definition only when it is addressable.
+
+        Schemas are deliberately not part of :meth:`find` results by default, so
+        this is the explicit second step a caller takes after choosing a uri.
+        The uri must be a real catalogued tool under one of the caller's roots;
+        anything else is a typed not-found rather than an empty success.
+        """
+        uri = tool_uri.strip()
+        match = _TOOL_URI_RE.fullmatch(uri)
+        if match is None:
+            raise InvalidArgumentError(
+                "tool_uri must be a catalogued viking:// tool uri",
+                details={"field": "tool_uri"},
+            )
+        roots = self._tools_roots(ctx)
+        if not any(uri.startswith(f"{root}/") for root in roots):
+            raise NotFoundError(uri, "MCP tool")
+        document = await self._tool(uri, ctx)
+        tool = document["tool"]
+        return {
+            "uri": uri,
+            "server": match.group("server"),
+            "name": tool["name"],
+            "description": tool.get("description", ""),
+            "inputSchema": tool.get("inputSchema", {}),
+            "annotations": tool.get("annotations", {}),
+            "revision": document.get("revision"),
+            "input_revision": document.get("input_revision"),
+        }
+
     async def _registered(
         self,
         name: str,

@@ -16,21 +16,31 @@ the expected per-server counts are asserted rather than assumed.
 
 Scope and safety
 ----------------
-These tests talk to a running local stack. They carry the ``integration`` marker and skip
-cleanly when the server or a bridge is absent, so a bare CI checkout is unaffected. No
-test touches real user memories: every write goes to a throwaway URI created by the test.
+These tests talk to a running stack: the instance named by ``OPENVIKING_TEST_BASE_URL``,
+defaulting to the local stack at ``http://127.0.0.1:1933``. They carry the ``integration``
+marker and skip cleanly when the server or a bridge is absent, so a bare CI checkout is
+unaffected. A target taken from the environment that is unreachable skips with that URL in
+the reason instead of silently falling back to the default, so an isolated run can never
+land on the developer's live stack. No test touches real user memories: every write goes to
+a throwaway URI created by the test.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import socket
 from pathlib import Path
 
 import httpx
 import pytest
 
-BASE_URL = "http://127.0.0.1:1933"
+# Suite target: the instance named by ``OPENVIKING_TEST_BASE_URL`` when set, else the local
+# stack. An explicit target is used verbatim so a run cannot drift onto the default stack.
+BASE_URL_ENV = "OPENVIKING_TEST_BASE_URL"
+DEFAULT_BASE_URL = "http://127.0.0.1:1933"
+_BASE_URL_OVERRIDE = os.environ.get(BASE_URL_ENV, "").strip()
+BASE_URL = (_BASE_URL_OVERRIDE or DEFAULT_BASE_URL).rstrip("/")
 MCP_URL = f"{BASE_URL}/mcp"
 HEALTH_URL = f"{BASE_URL}/health"
 
@@ -43,6 +53,8 @@ EXPECTED_BUILTIN_TOOLS = {
     "add_resource",
     "add_skill",
     "cancel_watch",
+    "captureDecision",
+    "contextPack",
     "download",
     "edit",
     "find",
@@ -57,17 +69,36 @@ EXPECTED_BUILTIN_TOOLS = {
     "list_groups",
     "list_users",
     "list_watches",
+    "mcpToolsByIntent",
     "privacy_resolve",
     "privacy_tree",
     "privacy_upsert",
     "read",
     "remember",
     "rule_search",
+    "rulesFor",
     "search",
     "set_acl",
+    "skillFromTrajectory",
+    "skillInstructions",
+    "skillsCatalog",
+    "toolSchema",
     "tree",
     "write",
 }
+
+# The five tools added in the latest surface expansion, named separately so a stale endpoint
+# fails with them spelled out instead of only a set difference.
+NEW_BUILTIN_TOOLS = (
+    "captureDecision",
+    "contextPack",
+    "mcpToolsByIntent",
+    "rulesFor",
+    "skillFromTrajectory",
+    "skillInstructions",
+    "skillsCatalog",
+    "toolSchema",
+)
 
 # External servers exposed by scripts/mcp-bridges.sh, with their port and upstream tool count.
 EXPECTED_MCP_SERVERS = {
@@ -148,9 +179,17 @@ def _is_error(result: dict) -> bool:
     return bool(payload.get("isError"))
 
 
+if _BASE_URL_OVERRIDE:
+    _SKIP_REASON = (
+        f"{BASE_URL_ENV}={BASE_URL} is not reachable - refusing to fall back to "
+        f"{DEFAULT_BASE_URL}; start the isolated server there or unset {BASE_URL_ENV}"
+    )
+else:
+    _SKIP_REASON = f"no OpenViking server at {BASE_URL}"
+
 pytestmark = [
     pytest.mark.integration,
-    pytest.mark.skipif(not _server_up(), reason=f"no OpenViking server at {BASE_URL}"),
+    pytest.mark.skipif(not _server_up(), reason=_SKIP_REASON),
 ]
 
 
@@ -163,9 +202,16 @@ def test_tools_list_matches_expected_builtin_set():
     listed = {tool["name"] for tool in _mcp_call("tools/list")["result"]["tools"]}
     missing = EXPECTED_BUILTIN_TOOLS - listed
     unexpected = listed - EXPECTED_BUILTIN_TOOLS
-    assert not missing, f"tools missing from the endpoint: {sorted(missing)}"
+    new_tool_names = list(NEW_BUILTIN_TOOLS)
+    missing_new = [name for name in new_tool_names if name in missing]
+    missing_hint = (
+        f"; new tools absent: {missing_new} (the five new tools are {new_tool_names})"
+        if missing_new
+        else ""
+    )
+    assert not missing, f"tools missing from the endpoint: {sorted(missing)}{missing_hint}"
     assert not unexpected, f"undocumented tools exposed: {sorted(unexpected)}"
-    assert len(listed) == 27
+    assert len(listed) == 32
 
 
 def test_every_builtin_tool_declares_an_input_schema():
@@ -194,6 +240,8 @@ READ_ONLY_CALLS = {
     "find": {"query": "memory", "limit": 3},
     "search": {"query": "memory", "limit": 3},
     "find_mcp_tools": {"query": "read a file", "limit": 3},
+    "skillsCatalog": {"limit": 5},
+    "contextPack": {"task": "verify that every tool works", "maxTokens": 128},
     "rule_search": {"task_context": "verify that every tool works"},
     "read": {"uri": "viking://user/default/memories/profile.md"},
     "download": {"uri": "viking://user/default/memories/profile.md"},
@@ -215,6 +263,42 @@ def test_find_mcp_tools_returns_real_external_tools():
         "external tool catalog is empty — was the bridge registered with wait=true?"
     )
     assert any(tool["uri"].endswith(".json") for tool in payload["tools"])
+    # Discovery is compact by default: the schema crosses the wire only on demand.
+    assert "tool" not in payload["tools"][0]
+    assert "inputSchema" not in json.dumps(payload["tools"][0])
+
+
+def test_find_mcp_tools_include_schema_restores_the_legacy_shape():
+    result = _call_tool("find_mcp_tools", {"query": "read a file", "limit": 2, "includeSchema": True})
+    assert not _is_error(result)
+    payload = json.loads(_result_text(result))
+    if payload["total"] == 0:
+        pytest.skip("external tool catalog is empty")
+    assert "inputSchema" in json.dumps(payload["tools"][0])
+
+
+def test_tool_schema_fetches_one_chosen_tool():
+    found = json.loads(_result_text(_call_tool("find_mcp_tools", {"query": "read a file", "limit": 1})))
+    if found["total"] == 0:
+        pytest.skip("external tool catalog is empty")
+    uri = found["tools"][0]["uri"]
+    result = _call_tool("toolSchema", {"toolUri": uri})
+    assert not _is_error(result), _result_text(result)
+    payload = json.loads(_result_text(result))
+    assert payload["uri"] == uri
+    assert "inputSchema" in payload
+
+
+def test_skill_instructions_read_one_listed_skill():
+    catalog = json.loads(_result_text(_call_tool("skillsCatalog", {"limit": 5})))
+    if catalog["total"] == 0:
+        pytest.skip("no installed skills on this instance")
+    name = catalog["skills"][0]["name"]
+    result = _call_tool("skillInstructions", {"skill": name, "maxChars": 2000})
+    assert not _is_error(result), _result_text(result)
+    payload = json.loads(_result_text(result))
+    assert payload["skill"] == name
+    assert payload["returnedChars"] <= 2000 + len("\n\n[truncated at 2000 characters; read the skill file for the remainder]")
 
 
 # ---------------------------------------------------------------------------

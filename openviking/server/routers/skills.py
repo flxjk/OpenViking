@@ -167,6 +167,33 @@ async def _list_skills_from_root(
     return results
 
 
+async def list_skill_catalog(
+    service,
+    ctx: RequestContext,
+    *,
+    target_uri: Optional[str] = None,
+    node_limit: int = _DEFAULT_SKILL_LIST_LIMIT,
+) -> list[Dict[str, Any]]:
+    """Return skill summaries for the caller's roots without any skill body.
+
+    This is the shared discovery primitive: the HTTP list route and the MCP
+    ``skillsCatalog`` tool both use it, so the accepted-skill rules (frontmatter
+    name validation, description requirement, SKILL.md fallback) have one home.
+    """
+    if target_uri:
+        resolved_uri = validate_request_viking_uri(
+            resolve_path_variables(target_uri), ctx, field_name="target_uri"
+        )
+        return await _list_skills_from_root(service, ctx, resolved_uri, node_limit)
+    user_skills = await _list_skills_from_root(
+        service, ctx, f"{canonical_user_root(ctx)}/skills", node_limit
+    )
+    agent_skills = await _list_skills_from_root(
+        service, ctx, "viking://agent/skills", node_limit
+    )
+    return [*user_skills, *agent_skills]
+
+
 async def _entry_looks_like_skill(service, ctx: RequestContext, entry: Dict[str, Any]) -> bool:
     """Decide whether a directory entry from ``ls`` represents a real skill."""
     entry_uri = entry.get("uri", "")

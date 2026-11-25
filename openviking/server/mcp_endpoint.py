@@ -67,6 +67,7 @@ from openviking.retrieve.context_assembler import (
     assemble_context,
 )
 from openviking.retrieve.skill_results import skill_root_uri
+from openviking.server import mcp_ops
 from openviking.server.auth import (
     _build_request_context,
     _extract_api_key,
@@ -541,21 +542,39 @@ async def privacy_upsert(
 
 @_mcp_error_results(structured_output=False)
 @mcp.tool(annotations=_READ_ONLY_TOOL_ANNOTATIONS, structured_output=False)
-async def find_mcp_tools(query: str, limit: int = 10) -> CallToolResult | str:
+async def find_mcp_tools(
+    query: str, limit: int = 10, includeSchema: bool = False
+) -> CallToolResult | str:
     """
     Semantically retrieve candidate MCP tools for the user's intent.
-    Returns ranked tools with routing URI, revision, score, and complete MCP definitions including inputSchema and annotations.
-    Choose a tool, fill arguments according to its inputSchema, then call invoke_mcp_tool with the returned uri as tool_uri.
-    No additional read is needed.
+    Returns ranked descriptors: routing URI, server, name, short description, score and revision. The
+    upstream inputSchema is NOT included by default — call toolSchema with the chosen uri when you need
+    the exact arguments. Pass includeSchema=True to get the complete MCP definitions in one call (the
+    large, token-expensive legacy shape). Then invoke the tool with invoke_mcp_tool and its uri.
     """
     service = get_service()
     ctx = _get_ctx()
     try:
-        result = await service.mcps.find(query, limit, ctx, include_definition=True)
+        result = await service.mcps.find(
+            query, limit, ctx, include_definition=includeSchema
+        )
     except OpenVikingError as exc:
         return _mcp_failure(str(exc))
-    tools = [{key: hit[key] for key in ("uri", "score", "tool")} for hit in result["tools"]]
-    payload = {"tools": tools, "total": len(tools)}
+    if includeSchema:
+        tools = [{key: hit[key] for key in ("uri", "score", "tool")} for hit in result["tools"]]
+    else:
+        tools = [
+            {
+                "uri": hit.get("uri"),
+                "server": hit.get("server"),
+                "name": hit.get("name"),
+                "description": " ".join(str(hit.get("description") or "").split())[:300],
+                "score": hit.get("score"),
+                "revision": hit.get("revision"),
+            }
+            for hit in result["tools"]
+        ]
+    payload = {"tools": tools, "total": len(tools), "includeSchema": includeSchema}
     return CallToolResult(
         content=[TextContent(type="text", text=json.dumps(payload, ensure_ascii=False))],
         structuredContent=payload,
@@ -1704,32 +1723,213 @@ class StoreMessage(BaseModel):
 @mcp.tool(annotations=_DESTRUCTIVE_TOOL_ANNOTATIONS)
 async def remember(messages: list[StoreMessage]) -> str:
     """Submit information for OpenViking long-term memory extraction. Use when the user says 'remember this', shares preferences, important facts, or decisions worth persisting. Extraction runs in the background and decides which memories to create or update."""
-    import uuid
+    return await mcp_ops.remember_messages(
+        get_service(), _get_ctx(), ((msg.role, msg.content) for msg in messages)
+    )
 
-    from openviking.message.part import TextPart
 
-    service = get_service()
-    ctx = _get_ctx()
-    session_id = f"mcp-store-{uuid.uuid4().hex[:12]}"
-    session = await service.sessions.open(session_id, ctx, auto_create=True)
-    added = 0
-    for msg in messages:
-        if msg.content:
-            add_async = getattr(session, "add_message_async", None)
-            if callable(add_async):
-                await add_async(msg.role, [TextPart(text=msg.content)])
-            else:
-                session.add_message(msg.role, [TextPart(text=msg.content)])
-            added += 1
-    result = await service.sessions.commit_async(session_id, ctx)
-    task_id = result.get("task_id")
-    if not task_id:
-        reason = result.get("reason") or result.get("status") or "unknown"
-        return f"Nothing was committed for memory extraction (reason: {reason})."
-    return (
-        f"Submitted {added} message(s) for memory extraction (session {session_id}, "
-        f"task_id={task_id}). Extraction runs in the background and decides which memories "
-        "to create or update."
+# -- contextPack / rulesFor / captureDecision / mcpToolsByIntent / skillFromTrajectory --
+
+
+def _structured_tool_result(result: Dict[str, Any]) -> CallToolResult:
+    """Adapt one bounded operation result to the MCP wire without duplicating it."""
+    return CallToolResult(
+        content=[TextContent(type="text", text=str(result["text"]))],
+        structuredContent=result["payload"],
+    )
+
+
+@_mcp_error_results()
+@mcp.tool(name="contextPack", annotations=_READ_ONLY_TOOL_ANNOTATIONS, structured_output=False)
+async def context_pack(task: str, maxTokens: int = DEFAULT_MAX_TOKENS) -> CallToolResult:
+    """Assemble one injection-ready, token-budgeted context block for a task.
+
+    Use this instead of several find/search calls when the next turn needs a block
+    that can be injected verbatim. The block comes from the same context assembler
+    as ``search(mode="context")`` and the structured payload carries provenance
+    URIs (bounded to 100) plus the token accounting.
+
+    ``maxTokens`` must be between 1 and 32000. A value outside that range is a
+    typed INVALID_ARGUMENT failure, not a silently clamped budget. An empty result
+    is a real empty result and is reported as a notice, never as a failure.
+    """
+    return _structured_tool_result(
+        await mcp_ops.context_pack(
+            get_service(), _get_ctx(), task=task, max_tokens=maxTokens
+        )
+    )
+
+
+@_mcp_error_results()
+@mcp.tool(name="rulesFor", annotations=_READ_ONLY_TOOL_ANNOTATIONS, structured_output=False)
+async def rules_for(
+    task: str, ruleProbabilityThreshold: float = 0.65
+) -> CallToolResult:
+    """Return the active compiled Rules that apply to a concrete task.
+
+    Put the goal, object, planned action, known facts and material unknowns in
+    ``task``. Rules are mandatory constraints when their applicability conditions
+    hold, so this tool refuses an empty answer: no match raises the typed
+    RULE_CORPUS_NOT_COMPILED configuration error because the account's rule
+    corpus is not usable yet. The rendered text is bounded; the payload carries
+    rule URIs for reading the rest.
+    """
+    return _structured_tool_result(
+        await mcp_ops.rules_for(
+            get_service(),
+            _get_ctx(),
+            task=task,
+            rule_probability_threshold=ruleProbabilityThreshold,
+        )
+    )
+
+
+@_mcp_error_results()
+@mcp.tool(
+    name="captureDecision",
+    annotations=_RETRY_SAFE_DESTRUCTIVE_TOOL_ANNOTATIONS,
+    structured_output=False,
+)
+async def capture_decision(summary: str, evidence: list[str]) -> CallToolResult:
+    """Persist one decision durably and request memory extraction for it.
+
+    Use when a decision, commitment or trade-off should outlive the session. The
+    decision is written to a digest-derived memory URI (so the answer is
+    idempotent by content: repeating the same summary and evidence returns
+    ``created=false`` and the same URI) and the same text is submitted through the
+    existing remember extraction path so the extractor can consolidate it.
+    """
+    return _structured_tool_result(
+        await mcp_ops.capture_decision(
+            get_service(), _get_ctx(), summary=summary, evidence=evidence
+        )
+    )
+
+
+@_mcp_error_results()
+@mcp.tool(
+    name="mcpToolsByIntent",
+    annotations=_OPEN_WORLD_DESTRUCTIVE_TOOL_ANNOTATIONS,
+    structured_output=False,
+)
+async def mcp_tools_by_intent(
+    intent: str,
+    limit: int = 10,
+    invoke: bool = False,
+    toolUri: str = "",
+    arguments: Optional[Dict[str, Any]] = None,
+) -> CallToolResult:
+    """Find MCP tools for an intent and optionally invoke one of them.
+
+    Descriptors are bounded (description, required argument names and input
+    property names; the full upstream schema is never returned). Set ``invoke``
+    only after a search: ``toolUri`` must be one of the URIs this call selected,
+    so the passthrough cannot reach an unrelated tool through an intent search.
+    An empty intent is a typed INVALID_ARGUMENT failure; zero matching tools is a
+    typed MCP_TOOL_CATALOG_EMPTY configuration failure.
+    """
+    return _structured_tool_result(
+        await mcp_ops.mcp_tools_by_intent(
+            get_service(),
+            _get_ctx(),
+            intent=intent,
+            limit=limit,
+            invoke=invoke,
+            tool_uri=toolUri,
+            arguments=arguments,
+        )
+    )
+
+
+@_mcp_error_results()
+@mcp.tool(
+    name="skillFromTrajectory",
+    annotations=_RETRY_SAFE_DESTRUCTIVE_TOOL_ANNOTATIONS,
+    structured_output=False,
+)
+async def skill_from_trajectory(
+    title: str,
+    steps: list[str],
+    citations: Optional[list[str]] = None,
+) -> CallToolResult:
+    """Create a skill from an execution trajectory and verify it by reading it back.
+
+    ``title`` becomes the SKILL.md description and the skill-name slug; ``steps``
+    become an ordered runbook and ``citations`` evidence links. The skill is only
+    reported as created after the stored SKILL.md is read back and its YAML
+    frontmatter parses with the expected name and a non-empty description.
+    Malformed trajectories (blank title, no steps, non-string entries, a title
+    that cannot form a valid skill name) are typed INVALID_ARGUMENT failures.
+    """
+    return _structured_tool_result(
+        await mcp_ops.skill_from_trajectory(
+            get_service(),
+            _get_ctx(),
+            title=title,
+            steps=steps,
+            citations=citations,
+        )
+    )
+
+
+# -- toolSchema / skillsCatalog / skillInstructions -------------------------
+
+
+@_mcp_error_results()
+@mcp.tool(name="toolSchema", annotations=_READ_ONLY_TOOL_ANNOTATIONS, structured_output=False)
+async def tool_schema(toolUri: str) -> CallToolResult:
+    """Fetch one chosen MCP tool's full inputSchema on demand.
+
+    Discovery (``find_mcp_tools``/``mcpToolsByIntent``) intentionally carries only
+    compact descriptors. After choosing a tool, call this with its ``uri`` to get
+    the exact schema needed to fill ``arguments``. A uri that is not a catalogued
+    tool under the caller's roots is a typed NOT_FOUND; a schema larger than the
+    payload budget is replaced with an explicit truncation marker.
+    """
+    return _structured_tool_result(
+        await mcp_ops.tool_schema(get_service(), _get_ctx(), tool_uri=toolUri)
+    )
+
+
+@_mcp_error_results()
+@mcp.tool(name="skillsCatalog", annotations=_READ_ONLY_TOOL_ANNOTATIONS, structured_output=False)
+async def skills_catalog(
+    limit: int = 50, targetUri: Optional[str] = None
+) -> CallToolResult:
+    """List installed skills as compact name + description rows, never bodies.
+
+    Use this as the first, cheapest skill-discovery step: it returns bounded
+    metadata for both the caller's private skills and the account-shared agent
+    skills. Read one skill's instructions only after choosing it, with
+    ``skillInstructions``. ``limit`` is clamped to 1..200.
+    """
+    return _structured_tool_result(
+        await mcp_ops.skill_catalog(
+            get_service(), _get_ctx(), limit=limit, target_uri=targetUri
+        )
+    )
+
+
+@_mcp_error_results()
+@mcp.tool(name="skillInstructions", annotations=_READ_ONLY_TOOL_ANNOTATIONS, structured_output=False)
+async def skill_instructions(
+    skill: str, reference: Optional[str] = None, maxChars: int = 8000
+) -> CallToolResult:
+    """Read one chosen skill's SKILL.md, or one reference leaf inside it.
+
+    Progressive disclosure: pass a catalog name (or its uri). ``reference`` reads
+    a relative file inside that skill package; absolute or traversal references
+    are typed INVALID_ARGUMENT. The body is clamped to ``maxChars`` (200..12000)
+    and ``truncated`` tells the caller the whole file did not arrive.
+    """
+    return _structured_tool_result(
+        await mcp_ops.skill_instructions(
+            get_service(),
+            _get_ctx(),
+            skill=skill,
+            reference=reference,
+            max_chars=maxChars,
+        )
     )
 
 
